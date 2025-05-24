@@ -114,7 +114,7 @@ void SceneNode::updateBranches(const glm::mat4& parentAnimate, const glm::mat4& 
 	glm::mat4 global = parentAnimate * animateRotationMatrix * localRotationMatrix * localTranslation * localScaling *  animateScaling;
 	globalTransformation = global;
 	// global to local rest post matrix
-	glm::mat4 local = localScaling * localTranslation * localRotationMatrix * parentRest;
+	glm::mat4 local = glm::inverse(parentRest * localRotationMatrix * localTranslation * localScaling);
 	restPose = local;
 	// global position of node
 	// for drawing purposes
@@ -301,7 +301,6 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 			glm::vec3 P = parent->globalTransformation[3]; 
 			glm::vec3 Q = child->globalTransformation[3];    
 			glm::vec3 closest = SceneNode::intersectionPoint(P, Q, contourPoint);
-			// just recomputing t to use for interpolating the transformations later
 			float t = glm::dot(Q - P, contourPoint - P) / glm::dot(Q - P, Q - P);
 			t = glm::clamp(t, 0.0f, 1.0f);
 
@@ -318,7 +317,7 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 }
 
 // interpolate the branch transformations and apply to contour points
-std::vector<glm::vec3> SceneNode::animateContourPoints(const std::vector<ContourBinding>& bindings) {
+std::vector<glm::vec3> SceneNode::animateContour(const std::vector<ContourBinding>& bindings) {
 	std::vector<glm::vec3> animatedPoints;
 
 	for (const auto& binding : bindings) {
@@ -326,12 +325,17 @@ std::vector<glm::vec3> SceneNode::animateContourPoints(const std::vector<Contour
 		glm::mat4 parentT = binding.parentNode->globalTransformation;
 		glm::mat4 childT = binding.childNode->globalTransformation;
 
-		// linearly interpolate matrix, then apply to the contour point: A'
-		glm::mat4 interpolatedMat = binding.t * childT + (1 - binding.t) * parentT;
-		// linearly interpolate the global to local transformation for rest pose: A-1
-		glm::mat4 restPoseMat = (binding.t * binding.childNode->restPose) + (1 - binding.t) * (binding.parentNode->restPose);
+		// linearly interpolate matrix, then apply to the contour point
+		// NOTE: blending matrices don't work well, so need to multiply by the inverse first then blend
+		glm::mat4 animatedPosMat = binding.t * childT * binding.childNode->restPose + (1 - binding.t) * (parentT* binding.parentNode->restPose);
+
 		// P' = A'A-1P
-		animatedPoints.push_back(interpolatedMat * restPoseMat * glm::vec4(binding.contourPoint, 1.0f));
+		animatedPoints.push_back(animatedPosMat * glm::vec4(binding.contourPoint, 1.0f));
+		//glm::vec3 finalPos = glm::vec3(interpolatedMat * restPoseMat * glm::vec4(binding.contourPoint, 1.0f));
+		//float elapsedTime = glm::clamp(animationTime / animationDuration, 0.0f, 1.0f);
+		//// interpolate original and final pos using time elapsed for animation
+		//glm::vec3 currentPos = glm::mix(binding.contourPoint, finalPos, elapsedTime);
+		//animatedPoints.push_back(currentPos);
 	}
 
 	return animatedPoints;

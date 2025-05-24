@@ -36,7 +36,7 @@ public:
 		SceneNode* root,
 		std::vector<std::pair<SceneNode*, SceneNode*>>&
 	);
-	std::vector<glm::vec3> animateContourPoints(const std::vector<ContourBinding>& bindings);
+	std::vector<glm::vec3> animateContour(const std::vector<ContourBinding>& bindings);
 	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);

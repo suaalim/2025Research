@@ -97,7 +97,7 @@ int main() {
 		root->updateBranches(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 
 		// contour
-		contour = root->animateContourPoints(bindings);
+		contour = root->animateContour(bindings);
 		for (int i = 0; i < contour.size(); ++i) {
 			contourGeometry.verts.push_back(contour[i]);
 			contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
