@@ -45,7 +45,7 @@ int main() {
 	GLuint shader = ShaderLoader("D:/Program/C++/NewPhytologist2017/articulated-structure/articulated-structure/assets/shaders/test.vert", "D:/Program/C++/NewPhytologist2017/articulated-structure/articulated-structure/assets/shaders/test.frag").ID;
 
 	// create and bind VAO and VBO
-	GLuint vaoBranch, vaoContour, vboBranch, vboContour, vboBranchColor, vboContourColor, vboMappingColor;
+	GLuint vaoBranch, vaoContour, vboBranch, vboContour, vboBranchColor, vboContourColor, vboMappingColor, vaoNewBranch, vboNewBranch, vboNewBranchColor;
 	glGenVertexArrays(1, &vaoBranch);
 	glGenVertexArrays(1, &vaoContour);
 	glGenBuffers(1, &vboBranch);
@@ -53,11 +53,15 @@ int main() {
 	glGenBuffers(1, &vboBranchColor);
 	glGenBuffers(1, &vboContourColor);
 	glGenBuffers(1, &vboMappingColor);
+	glGenVertexArrays(1, &vaoNewBranch);
+	glGenBuffers(1, &vboNewBranch);
+	glGenBuffers(1, &vboNewBranchColor);
 
 	// branch initialization
 	CPU_Geometry branchGeometry;
+	CPU_Geometry branchUpdates;
 	SceneNode* root = SceneNode::createBranch(0, 1, 45.0f, 1.0f, false);
-	root->updateBranches(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	root->generateInitialContourControlPoints(root);
@@ -85,6 +89,9 @@ int main() {
 		branchGeometry.indices.clear();
 		contourGeometry.verts.clear();
 		contourGeometry.cols.clear();
+		branchUpdates.verts.clear();
+		branchUpdates.cols.clear();
+		branchUpdates.indices.clear();
 
 		// camera setup
 		glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 6), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
@@ -94,7 +101,9 @@ int main() {
 		glUniformMatrix4fv(glGetUniformLocation(shader, "viewProj"), 1, GL_FALSE, glm::value_ptr(viewProj));
 
 		// update branch position
-		root->updateBranches(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+		root->interpolateBranch(bindings, branchUpdates);
+		for (int i = 0; i < branchUpdates.verts.size(); ++i) branchUpdates.cols.push_back(glm::vec3(1.0f));
 
 		// contour
 		contour = root->animateContour(bindings);
@@ -106,14 +115,17 @@ int main() {
 		mappingLines.verts.clear();
 		mappingLines.indices.clear();
 
+		// UPDATE ONCE BRANCHES INTERPOLATE
+		int i = 0;
 		for (const auto& binding : bindings) {
 			int startIdx = mappingLines.verts.size();
-			mappingLines.verts.push_back(binding.contourPoint);
+			mappingLines.verts.push_back(contour[i]);
 			mappingLines.verts.push_back(binding.closestPoint);
 			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
 			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
 			mappingLines.indices.push_back(startIdx);     // from contour
 			mappingLines.indices.push_back(startIdx + 1); // to closest branch point
+			++i;
 		}
 
 		// draw branch
@@ -131,8 +143,25 @@ int main() {
 		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
 		glBufferData(GL_ELEMENT_ARRAY_BUFFER, branchGeometry.indices.size() * sizeof(unsigned int), branchGeometry.indices.data(), GL_DYNAMIC_DRAW);
 		glPointSize(5);
-		glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
+		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
 		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
+		// draw branch interpolation
+		glBindVertexArray(vaoNewBranch);
+		glBindBuffer(GL_ARRAY_BUFFER, vboNewBranch);
+		glBufferData(GL_ARRAY_BUFFER, branchUpdates.verts.size() * sizeof(glm::vec3), branchUpdates.verts.data(), GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(0);
+		glBindBuffer(GL_ARRAY_BUFFER, vboNewBranchColor);
+		glBufferData(GL_ARRAY_BUFFER, branchUpdates.cols.size() * sizeof(glm::vec3), branchUpdates.cols.data(), GL_DYNAMIC_DRAW);
+		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+		glEnableVertexAttribArray(1);
+		GLuint elementbuffer2;
+		glGenBuffers(1, &elementbuffer2);
+		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer2);
+		glBufferData(GL_ELEMENT_ARRAY_BUFFER, branchUpdates.indices.size() * sizeof(unsigned int), branchUpdates.indices.data(), GL_DYNAMIC_DRAW);
+		glDrawArrays(GL_POINTS, 0, branchUpdates.verts.size());
+		//glDrawArrays(GL_LINE_STRIP, 0, branchUpdates.verts.size());
+		glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
 		// draw contour
 		glBindVertexArray(vaoContour);
 		glBindBuffer(GL_ARRAY_BUFFER, vboContour);

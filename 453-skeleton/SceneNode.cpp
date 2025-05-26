@@ -16,6 +16,7 @@
 #include <glm/gtc/quaternion.hpp>
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/spline.hpp>
+#include <map>
 
 // just a helper function to print the matrices for debugging purposes
 void printMat4(const glm::mat4& mat) {
@@ -52,8 +53,9 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 	branch->localScaling = glm::mat4(1.0f);
 
 	float childLength = length * 0.5f;
-	std::vector<float> angles = { angle };
-	//std::vector<float> angles = { angle, 0.0f, -angle };
+	//std::vector<float> angles = { 0.f };
+	//std::vector<float> angles = { angle };
+	std::vector<float> angles = { angle, 0.0f, -angle };
 
 	// selecting angles based on alternating structure or symmetric structure
 	std::vector<float> selectedAngles;
@@ -71,7 +73,10 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 		SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate);
 		if (!child) continue;
 
+		// uniform scaling
 		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+		// non-uniform scaling
+		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
 		glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
 		glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -97,7 +102,10 @@ void SceneNode::animate(float deltaTime) {
 	animateRotation = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(animationAngle), glm::vec3(0, 0, 1)));
 
 	animationScaling += deltaTime * animationScaling;
+	// uniform scaling
 	animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(animationScaling));
+	// non-uniform scaling
+	//animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, animationScaling, 1.0f));
 
 	for (SceneNode* child : children) {
 		child->animate(deltaTime);
@@ -106,16 +114,19 @@ void SceneNode::animate(float deltaTime) {
 
 // compute global transformation for all nodes recursively
 // to get the final position and draw
-void SceneNode::updateBranches(const glm::mat4& parentAnimate, const glm::mat4& parentRest, CPU_Geometry& outGeometry) {
+void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRest, CPU_Geometry& outGeometry) {
 	// convert rotation quaternion back to matrix form
 	glm::mat4 animateRotationMatrix = glm::toMat4(animateRotation);
 	glm::mat4 localRotationMatrix = glm::toMat4(localRotation);
 	// local to global animated matrix: A = T*V
-	glm::mat4 global = parentAnimate * animateRotationMatrix * localRotationMatrix * localTranslation * localScaling *  animateScaling;
+	glm::mat4 global = parentTransform * animateRotationMatrix * localRotationMatrix * localTranslation * localScaling *  animateScaling;
 	globalTransformation = global;
 	// global to local rest post matrix
 	glm::mat4 local = glm::inverse(parentRest * localRotationMatrix * localTranslation * localScaling);
-	restPose = local;
+	restPoseInverse = local;
+	// rest pose matrix
+	glm::mat4 rest = parentRest * localRotationMatrix * localTranslation * localScaling;
+	restPose = rest;
 	// global position of node
 	// for drawing purposes
 	glm::vec3 rootPos = glm::vec3(global[3]);
@@ -135,7 +146,7 @@ void SceneNode::updateBranches(const glm::mat4& parentAnimate, const glm::mat4& 
 		outGeometry.indices.push_back(childIndex);
 
 		// recurse
-		child->updateBranches(global, local, outGeometry);
+		child->updateBranch(global, local, outGeometry);
 	}
 }
 
@@ -321,22 +332,54 @@ std::vector<glm::vec3> SceneNode::animateContour(const std::vector<ContourBindin
 	std::vector<glm::vec3> animatedPoints;
 
 	for (const auto& binding : bindings) {
-		// NEED TO SEPARATE 
-		glm::mat4 parentT = binding.parentNode->globalTransformation;
-		glm::mat4 childT = binding.childNode->globalTransformation;
-
 		// linearly interpolate matrix, then apply to the contour point
 		// NOTE: blending matrices don't work well, so need to multiply by the inverse first then blend
-		glm::mat4 animatedPosMat = binding.t * childT * binding.childNode->restPose + (1 - binding.t) * (parentT* binding.parentNode->restPose);
-
-		// P' = A'A-1P
+		// P' = A'A-1P but before we interpolate
+		glm::mat4 animatedPosMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1 - binding.t) * (binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);;
 		animatedPoints.push_back(animatedPosMat * glm::vec4(binding.contourPoint, 1.0f));
-		//glm::vec3 finalPos = glm::vec3(interpolatedMat * restPoseMat * glm::vec4(binding.contourPoint, 1.0f));
-		//float elapsedTime = glm::clamp(animationTime / animationDuration, 0.0f, 1.0f);
-		//// interpolate original and final pos using time elapsed for animation
-		//glm::vec3 currentPos = glm::mix(binding.contourPoint, finalPos, elapsedTime);
-		//animatedPoints.push_back(currentPos);
 	}
 
 	return animatedPoints;
 }
+
+// interpolate branches
+void SceneNode::interpolateBranch(const std::vector<ContourBinding>& bindings, CPU_Geometry& outGeometry) {
+	//std::vector<glm::vec3> animatedPoints;
+	//std::vector<int> animatedBranchIndex;
+	int parentIndex = outGeometry.verts.size();
+	int currentIndex = 0;
+	SceneNode* currentParent = bindings.at(0).parentNode;
+	for (int i = 0; i < bindings.size(); ++i) {
+		// new branch
+		if (currentParent != bindings.at(i).parentNode) {
+			currentParent = bindings.at(i).parentNode;
+			parentIndex = outGeometry.verts.size();
+
+			// interpolate transformation matrices
+			glm::mat4 animatedPosMat = bindings.at(i).t * bindings.at(i).childNode->globalTransformation * bindings.at(i).childNode->restPoseInverse + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->globalTransformation * bindings.at(i).parentNode->restPoseInverse);
+			// current position of the branch point (distance t)
+			glm::vec4 pos = bindings.at(i).t * (bindings.at(i).childNode->restPose)[3] + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->restPose)[3];
+			outGeometry.verts.push_back(animatedPosMat * pos);
+			outGeometry.indices.push_back(parentIndex);
+			outGeometry.indices.push_back(outGeometry.verts.size());
+		}
+		// existing branch
+		else {
+			// interpolate transformation matrices
+			glm::mat4 animatedPosMat = bindings.at(i).t * bindings.at(i).childNode->globalTransformation * bindings.at(i).childNode->restPoseInverse + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->globalTransformation * bindings.at(i).parentNode->restPoseInverse);
+			// current position of the branch point (distance t)
+			glm::vec4 pos = bindings.at(i).t * (bindings.at(i).childNode->restPose)[3] + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->restPose)[3];
+			outGeometry.verts.push_back(animatedPosMat * pos);
+			outGeometry.indices.push_back(outGeometry.verts.size() - 1);
+			outGeometry.indices.push_back(outGeometry.verts.size());
+		}
+	}
+	//outGeometry.verts = animatedPoints;
+	for (int i = 0; i < outGeometry.verts.size(); ++i) {
+		outGeometry.cols.push_back(glm::vec3(1.0f));
+	}
+}
+
+// each pair is current index and current index - 1
+// except for when the parent changes
+
