@@ -26,7 +26,7 @@ public:
 	SceneNode();
 	void addChild(SceneNode* child);
 	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate);
-	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
+	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
@@ -42,14 +42,15 @@ public:
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
 	static std::vector<glm::vec3> contourCatmullRom(SceneNode* root, int points);
+	std::vector<std::vector<ContourBinding>> groupBindingsByBranch(const std::vector<ContourBinding>& bindings);
+	std::vector<CPU_Geometry> interpolateBranch(const std::vector<std::vector<ContourBinding>>& bindings);
+	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
+
 	// global transformation A = T*V
 	glm::mat4 globalTransformation = glm::mat4(1.0f);
 	// global to local transformation for rest pose 
 	glm::mat4 restPoseInverse;
-	// rest pose matrix
 	glm::mat4 restPose;
-	// animation matrix (skinning transformation)
-	glm::mat4 animateMat;
 
 private:
 	SceneNode* parent;

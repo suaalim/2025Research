@@ -96,9 +96,9 @@ int main() {
 
 	// branch initialization
 	CPU_Geometry branchGeometry;
-	CPU_Geometry branchUpdates;
+	std::vector<CPU_Geometry> branchUpdates;
 	SceneNode* root = SceneNode::createBranch(0, 1, 45.0f, 1.0f, false);
-	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	root->generateInitialContourControlPoints(root);
@@ -108,6 +108,7 @@ int main() {
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
 	std::vector<std::pair<SceneNode*, SceneNode*>> branchPairs = root->getBranches(root, pairs);
 	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, branchPairs);
+	//std::vector<std::vector<ContourBinding>> bindingGroups = root->groupBindingsByBranch(bindings);
 	CPU_Geometry mappingLines;
 
 	float lastTime = glfwGetTime();
@@ -116,7 +117,7 @@ int main() {
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		// animation
 		float currentTime = glfwGetTime();
-		float deltaTime = (currentTime - lastTime)/10;
+		float deltaTime = (currentTime - lastTime) / 10;
 		lastTime = currentTime;
 		root->animate(deltaTime);
 
@@ -126,9 +127,11 @@ int main() {
 		branchGeometry.indices.clear();
 		contourGeometry.verts.clear();
 		contourGeometry.cols.clear();
-		branchUpdates.verts.clear();
-		branchUpdates.cols.clear();
-		branchUpdates.indices.clear();
+		for (int i = 0; i < branchUpdates.size(); ++i) {
+			branchUpdates[i].verts.clear();
+			branchUpdates[i].cols.clear();
+			branchUpdates[i].indices.clear();
+		}
 
 		// camera setup
 		glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 6), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
@@ -138,9 +141,9 @@ int main() {
 		glUniformMatrix4fv(glGetUniformLocation(shader, "viewProj"), 1, GL_FALSE, glm::value_ptr(viewProj));
 
 		// update branch position
-		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
-		root->interpolateBranch(bindings, branchUpdates);
-		for (int i = 0; i < branchUpdates.verts.size(); ++i) branchUpdates.cols.push_back(glm::vec3(1.0f));
+		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+		root->interpolateBranchTransforms(branchPairs, branchUpdates);
+		//root->interpolateBranch(bindings, branchUpdates);
 
 		// contour
 		contour = root->animateContour(bindings);
@@ -155,9 +158,10 @@ int main() {
 		// UPDATE ONCE BRANCHES INTERPOLATE
 		int i = 0;
 		for (const auto& binding : bindings) {
+			glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
 			int startIdx = mappingLines.verts.size();
 			mappingLines.verts.push_back(contour[i]);
-			mappingLines.verts.push_back(binding.closestPoint);
+			mappingLines.verts.push_back(glm::vec3(animatedMat * glm::vec4(binding.closestPoint, 1.f)));
 			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
 			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
 			mappingLines.indices.push_back(startIdx);     // from contour
@@ -165,23 +169,30 @@ int main() {
 			++i;
 		}
 
+		glPointSize(5);
 		// Branch
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
-		draw(GL_LINES, branchGeometry.verts.size(), branchGeometry.indices.size());
+		glBindVertexArray(vao);
+		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
+		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
 
 		// Interpolated branch
-		updateBuffers(branchUpdates.verts, branchUpdates.cols, branchUpdates.indices);
-		draw(GL_LINES, branchUpdates.verts.size(), branchUpdates.indices.size());
+		for (int i = 0; i < branchUpdates.size(); ++i) {
+			updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
+			glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
+			glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
+			//glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
+		}
 
 		// Contour
 		updateBuffers(contourGeometry.verts, contourGeometry.cols, {});
-		glPointSize(5);
 		glDrawArrays(GL_POINTS, 0, contourGeometry.verts.size());
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
 
 		// Mapping (DEBUGGING PURPOSES)
-		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
-		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
+		updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
+		draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
