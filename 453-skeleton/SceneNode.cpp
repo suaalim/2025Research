@@ -344,42 +344,36 @@ std::vector<glm::vec3> SceneNode::animateContour(const std::vector<ContourBindin
 
 // interpolate branches
 void SceneNode::interpolateBranch(const std::vector<ContourBinding>& bindings, CPU_Geometry& outGeometry) {
-	//std::vector<glm::vec3> animatedPoints;
-	//std::vector<int> animatedBranchIndex;
-	int parentIndex = outGeometry.verts.size();
-	int currentIndex = 0;
-	SceneNode* currentParent = bindings.at(0).parentNode;
-	for (int i = 0; i < bindings.size(); ++i) {
-		// new branch
-		if (currentParent != bindings.at(i).parentNode) {
-			currentParent = bindings.at(i).parentNode;
-			parentIndex = outGeometry.verts.size();
+	int prevIndex = -1;
+	ContourBinding prevBinding = bindings[0];
 
-			// interpolate transformation matrices
-			glm::mat4 animatedPosMat = bindings.at(i).t * bindings.at(i).childNode->globalTransformation * bindings.at(i).childNode->restPoseInverse + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->globalTransformation * bindings.at(i).parentNode->restPoseInverse);
-			// current position of the branch point (distance t)
-			glm::vec4 pos = bindings.at(i).t * (bindings.at(i).childNode->restPose)[3] + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->restPose)[3];
-			outGeometry.verts.push_back(animatedPosMat * pos);
-			outGeometry.indices.push_back(parentIndex);
-			outGeometry.indices.push_back(outGeometry.verts.size());
+	for (int i = 0; i < bindings.size(); ++i) {
+		const ContourBinding& curr = bindings[i];
+		glm::mat4 animatedMat =
+			curr.t * curr.childNode->globalTransformation * curr.childNode->restPoseInverse +
+			(1.0f - curr.t) * curr.parentNode->globalTransformation * curr.parentNode->restPoseInverse;
+
+		glm::vec4 pos =
+			curr.t * curr.childNode->restPose[3] +
+			(1.0f - curr.t) * curr.parentNode->restPose[3];
+
+		// store the vertex and get its index
+		int currIndex = outGeometry.verts.size();
+		outGeometry.verts.push_back(glm::vec3(animatedMat * pos));
+		outGeometry.cols.push_back(glm::vec3(1.0f)); 
+
+		// if same branch (same parent and child), connect to previous
+		if (i > 0 &&
+			curr.parentNode == prevBinding.parentNode &&
+			curr.childNode == prevBinding.childNode) {
+
+			outGeometry.indices.push_back(prevIndex);
+			outGeometry.indices.push_back(currIndex);
 		}
-		// existing branch
-		else {
-			// interpolate transformation matrices
-			glm::mat4 animatedPosMat = bindings.at(i).t * bindings.at(i).childNode->globalTransformation * bindings.at(i).childNode->restPoseInverse + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->globalTransformation * bindings.at(i).parentNode->restPoseInverse);
-			// current position of the branch point (distance t)
-			glm::vec4 pos = bindings.at(i).t * (bindings.at(i).childNode->restPose)[3] + (1 - bindings.at(i).t) * (bindings.at(i).parentNode->restPose)[3];
-			outGeometry.verts.push_back(animatedPosMat * pos);
-			outGeometry.indices.push_back(outGeometry.verts.size() - 1);
-			outGeometry.indices.push_back(outGeometry.verts.size());
-		}
-	}
-	//outGeometry.verts = animatedPoints;
-	for (int i = 0; i < outGeometry.verts.size(); ++i) {
-		outGeometry.cols.push_back(glm::vec3(1.0f));
+
+		// Update previous
+		prevBinding = curr;
+		prevIndex = currIndex;
 	}
 }
-
-// each pair is current index and current index - 1
-// except for when the parent changes
 

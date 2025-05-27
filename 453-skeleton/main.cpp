@@ -35,6 +35,52 @@ void fillMappingGeometry(
 	}
 }
 
+GLuint vao, vboPos, vboColor, ebo;
+
+void setupBuffers() {
+	glGenVertexArrays(1, &vao);
+	glBindVertexArray(vao);
+
+	glGenBuffers(1, &vboPos);
+	glBindBuffer(GL_ARRAY_BUFFER, vboPos);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);  
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(0);
+
+	glGenBuffers(1, &vboColor);
+	glBindBuffer(GL_ARRAY_BUFFER, vboColor);
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);  
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+	glEnableVertexAttribArray(1);
+
+	glGenBuffers(1, &ebo);
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
+
+	glBindVertexArray(0);
+}
+
+void updateBuffers(const std::vector<glm::vec3>& verts,
+	const std::vector<glm::vec3>& colors,
+	const std::vector<unsigned int>& indices) {
+	glBindVertexArray(vao);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vboPos);
+	glBufferData(GL_ARRAY_BUFFER, verts.size() * sizeof(glm::vec3), verts.data(), GL_DYNAMIC_DRAW);
+
+	glBindBuffer(GL_ARRAY_BUFFER, vboColor);
+	glBufferData(GL_ARRAY_BUFFER, colors.size() * sizeof(glm::vec3), colors.data(), GL_DYNAMIC_DRAW);
+
+	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo);
+	glBufferData(GL_ELEMENT_ARRAY_BUFFER, indices.size() * sizeof(unsigned int), indices.data(), GL_DYNAMIC_DRAW);
+}
+
+void draw(GLenum primitive, GLsizei vertexCount, GLsizei indexCount) {
+	glBindVertexArray(vao);
+	glDrawArrays(GL_POINTS, 0, vertexCount);
+	glDrawElements(primitive, indexCount, GL_UNSIGNED_INT, 0);
+}
+
 int main() {
 	glfwInit();
 	GLFWwindow* window = glfwCreateWindow(800, 800, "Branching Structure", NULL, NULL);
@@ -45,17 +91,8 @@ int main() {
 	GLuint shader = ShaderLoader("D:/Program/C++/NewPhytologist2017/articulated-structure/articulated-structure/assets/shaders/test.vert", "D:/Program/C++/NewPhytologist2017/articulated-structure/articulated-structure/assets/shaders/test.frag").ID;
 
 	// create and bind VAO and VBO
-	GLuint vaoBranch, vaoContour, vboBranch, vboContour, vboBranchColor, vboContourColor, vboMappingColor, vaoNewBranch, vboNewBranch, vboNewBranchColor;
-	glGenVertexArrays(1, &vaoBranch);
-	glGenVertexArrays(1, &vaoContour);
-	glGenBuffers(1, &vboBranch);
-	glGenBuffers(1, &vboContour);
-	glGenBuffers(1, &vboBranchColor);
-	glGenBuffers(1, &vboContourColor);
-	glGenBuffers(1, &vboMappingColor);
-	glGenVertexArrays(1, &vaoNewBranch);
-	glGenBuffers(1, &vboNewBranch);
-	glGenBuffers(1, &vboNewBranchColor);
+	setupBuffers();
+
 
 	// branch initialization
 	CPU_Geometry branchGeometry;
@@ -128,69 +165,23 @@ int main() {
 			++i;
 		}
 
-		// draw branch
-		glBindVertexArray(vaoBranch);
-		glBindBuffer(GL_ARRAY_BUFFER, vboBranch);
-		glBufferData(GL_ARRAY_BUFFER, branchGeometry.verts.size() * sizeof(glm::vec3), branchGeometry.verts.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vboBranchColor);
-		glBufferData(GL_ARRAY_BUFFER, branchGeometry.cols.size() * sizeof(glm::vec3), branchGeometry.cols.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(1);
-		GLuint elementbuffer;
-		glGenBuffers(1, &elementbuffer);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, branchGeometry.indices.size() * sizeof(unsigned int), branchGeometry.indices.data(), GL_DYNAMIC_DRAW);
+		// Branch
+		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
+		draw(GL_LINES, branchGeometry.verts.size(), branchGeometry.indices.size());
+
+		// Interpolated branch
+		updateBuffers(branchUpdates.verts, branchUpdates.cols, branchUpdates.indices);
+		draw(GL_LINES, branchUpdates.verts.size(), branchUpdates.indices.size());
+
+		// Contour
+		updateBuffers(contourGeometry.verts, contourGeometry.cols, {});
 		glPointSize(5);
-		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
-		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
-		// draw branch interpolation
-		glBindVertexArray(vaoNewBranch);
-		glBindBuffer(GL_ARRAY_BUFFER, vboNewBranch);
-		glBufferData(GL_ARRAY_BUFFER, branchUpdates.verts.size() * sizeof(glm::vec3), branchUpdates.verts.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vboNewBranchColor);
-		glBufferData(GL_ARRAY_BUFFER, branchUpdates.cols.size() * sizeof(glm::vec3), branchUpdates.cols.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(1);
-		GLuint elementbuffer2;
-		glGenBuffers(1, &elementbuffer2);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, elementbuffer2);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, branchUpdates.indices.size() * sizeof(unsigned int), branchUpdates.indices.data(), GL_DYNAMIC_DRAW);
-		glDrawArrays(GL_POINTS, 0, branchUpdates.verts.size());
-		//glDrawArrays(GL_LINE_STRIP, 0, branchUpdates.verts.size());
-		glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
-		// draw contour
-		glBindVertexArray(vaoContour);
-		glBindBuffer(GL_ARRAY_BUFFER, vboContour);
-		glBufferData(GL_ARRAY_BUFFER, contourGeometry.verts.size() * sizeof(glm::vec3), contourGeometry.verts.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ARRAY_BUFFER, vboContourColor);
-		glBufferData(GL_ARRAY_BUFFER, contourGeometry.cols.size() * sizeof(glm::vec3), contourGeometry.cols.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(1);
 		glDrawArrays(GL_POINTS, 0, contourGeometry.verts.size());
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
-		// draw mapping (DEBUGGING PURPOSES)
-		GLuint vaoMap, vboMap, eboMap;
-		glGenVertexArrays(1, &vaoMap);
-		glGenBuffers(1, &vboMap);
-		glGenBuffers(1, &eboMap);
-		glBindVertexArray(vaoMap);
-		glBindBuffer(GL_ARRAY_BUFFER, vboMap);
-		glBufferData(GL_ARRAY_BUFFER, mappingLines.verts.size() * sizeof(glm::vec3), mappingLines.verts.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(0);
-		glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, eboMap);
-		glBufferData(GL_ELEMENT_ARRAY_BUFFER, mappingLines.indices.size() * sizeof(unsigned int), mappingLines.indices.data(), GL_DYNAMIC_DRAW);
-		glBindBuffer(GL_ARRAY_BUFFER, vboMappingColor);
-		glBufferData(GL_ARRAY_BUFFER, mappingLines.cols.size() * sizeof(glm::vec3), mappingLines.cols.data(), GL_DYNAMIC_DRAW);
-		glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-		glEnableVertexAttribArray(1);
-		//glDrawElements(GL_LINES, mappingLines.indices.size(), GL_UNSIGNED_INT, 0);
+
+		// Mapping (DEBUGGING PURPOSES)
+		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
