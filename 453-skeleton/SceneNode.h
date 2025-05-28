@@ -30,7 +30,7 @@ public:
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
-	std::vector<std::pair<SceneNode*, SceneNode*>> getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
+	void getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
 	std::vector<ContourBinding> bindContourToBranches(
 		const std::vector<glm::vec3>& contourPoints,
 		SceneNode* root,
@@ -38,19 +38,24 @@ public:
 	);
 	std::vector<glm::vec3> animateContour(const std::vector<ContourBinding>& bindings);
 	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
-	void interpolateBranch(const std::vector<ContourBinding>& bindings, CPU_Geometry& outGeometry);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
-	static std::vector<glm::vec3> contourCatmullRom(SceneNode* root, int points);
-	std::vector<std::vector<ContourBinding>> groupBindingsByBranch(const std::vector<ContourBinding>& bindings);
-	std::vector<CPU_Geometry> interpolateBranch(const std::vector<std::vector<ContourBinding>>& bindings);
+	static std::vector<glm::vec3> contourCatmullRom(std::vector<glm::vec3> root, int points);
+	void interpolateBranch(const std::vector<ContourBinding>& bindings, CPU_Geometry& outGeometry);
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
-
+	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
+	void inverseTransform(std::vector<ContourBinding>& bindings);
+	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
+		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
+	
 	// global transformation A = T*V
 	glm::mat4 globalTransformation = glm::mat4(1.0f);
 	// global to local transformation for rest pose 
 	glm::mat4 restPoseInverse;
+	// rest pose
 	glm::mat4 restPose;
+	// has contour been updated?
+	bool contourChanged = false;
 
 private:
 	SceneNode* parent;

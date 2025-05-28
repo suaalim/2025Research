@@ -17,6 +17,8 @@
 #include <glm/gtx/quaternion.hpp>
 #include <glm/gtx/spline.hpp>
 #include <map>
+#include <numeric>
+#include <cmath>
 
 // just a helper function to print the matrices for debugging purposes
 void printMat4(const glm::mat4& mat) {
@@ -78,9 +80,9 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 		if (!child) continue;
 
 		// uniform scaling
-		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
 		// non-uniform scaling
-		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
+		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
 		glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
 		glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -107,9 +109,9 @@ void SceneNode::animate(float deltaTime) {
 
 	animationScaling += deltaTime * animationScaling;
 	// uniform scaling
-	animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(animationScaling));
+	//animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(animationScaling));
 	// non-uniform scaling
-	//animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, animationScaling, 1.0f));
+	animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, animationScaling, 1.0f));
 
 	for (SceneNode* child : children) {
 		child->animate(deltaTime);
@@ -195,7 +197,6 @@ std::vector<glm::vec3> SceneNode::generateInitialContourControlPoints(SceneNode*
 		glm::vec3 leafParentPos = leaf->parent->globalTransformation[3];
 		glm::vec3 dir = glm::normalize(leafPos - leafParentPos);
 		glm::vec3 offsetPos = leafPos + dir * 0.5f;
-
 		controlPoints.push_back(offsetPos);
 	}
 
@@ -251,8 +252,7 @@ std::vector<glm::vec3> SceneNode::bSplineCurve(int subdivision, SceneNode* root)
 }
 
 // contour using catmull rom spline 
-std::vector<glm::vec3> SceneNode::contourCatmullRom(SceneNode* root, int points) {
-	std::vector<glm::vec3> controlPoints = generateInitialContourControlPoints(root);
+std::vector<glm::vec3> SceneNode::contourCatmullRom(std::vector<glm::vec3> controlPoints, int points) {
 	// add first and last points
 	std::vector<glm::vec3> paddedPoints;
 	glm::vec3 first = controlPoints[0] + (controlPoints[0] - controlPoints[1]);
@@ -279,9 +279,9 @@ std::vector<glm::vec3> SceneNode::contourCatmullRom(SceneNode* root, int points)
 		}
 	}
 
-	// add more points to connect to the root
-	curvePoints.insert(curvePoints.begin(), glm::vec3(curvePoints.front().x, curvePoints.front().y - 0.5f, curvePoints.front().z));
-	curvePoints.push_back(glm::vec3(curvePoints.back().x, curvePoints.back().y - 0.5f, curvePoints.back().z));
+	//// add more points to connect to the root
+	//curvePoints.insert(curvePoints.begin(), glm::vec3(curvePoints.front().x, curvePoints.front().y - 0.5f, curvePoints.front().z));
+	//curvePoints.push_back(glm::vec3(curvePoints.back().x, curvePoints.back().y - 0.5f, curvePoints.back().z));
 
 	return curvePoints;
 }
@@ -297,12 +297,11 @@ glm::vec3 SceneNode::intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R) {
 }
 
 // extract parent child pair (endpoints of the branches)
-std::vector<std::pair<SceneNode*, SceneNode*>> SceneNode::getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments) {
+void SceneNode::getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments) {
 	for (SceneNode* child : node->children) {
 		segments.push_back({ node, child });
 		getBranches(child, segments);
 	}
-	return segments;
 }
 
 std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<glm::vec3>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments) {
@@ -409,8 +408,8 @@ void SceneNode::interpolateBranchTransforms(std::vector<std::pair<SceneNode*, Sc
 		glm::mat4 T2 = child->globalTransformation;
 		CPU_Geometry geom;
 		
-		for (int i = 0; i <= 10; ++i) {
-			float t = static_cast<float>(i) / 10.0f;
+		for (int i = 0; i <= 7; ++i) {
+			float t = static_cast<float>(i) / 7.0f;
 
 			glm::mat4 animatedMat =
 				t * child->globalTransformation * child->restPoseInverse +
@@ -426,3 +425,49 @@ void SceneNode::interpolateBranchTransforms(std::vector<std::pair<SceneNode*, Sc
 	}
 }
 
+// check distance bewteen each contour points
+// if distance is longer than a threshold, add a new point in bewteen those points
+std::vector<glm::vec3> SceneNode::distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints) {
+	std::vector<glm::vec3> newContourPoints;
+	// arbitrary threshold
+	float threshold = 0.3f;
+	for (int i = 0; i < contourPoints.size() - 1; ++i) {
+		float distance = glm::length(contourPoints[i + 1] - contourPoints[i]);
+		if (distance >= threshold) {
+			// add a point in between the two original points
+			newContourPoints.push_back(contourPoints[i]);
+			newContourPoints.push_back(glm::mix(contourPoints[i], contourPoints[i + 1], 0.5f));
+			contourChanged = true;
+		}
+		else {
+			newContourPoints.push_back(contourPoints[i]);
+		}
+	}
+	newContourPoints.push_back(contourPoints[contourPoints.size() - 1]);
+	return newContourPoints;
+}
+
+// inverse transform the deformed contour 
+void SceneNode::inverseTransform(std::vector<ContourBinding>& bindings) {
+	for (auto& binding : bindings) {
+		glm::mat4 transformInverseMat = binding.t * glm::inverse(binding.childNode->globalTransformation * binding.childNode->restPoseInverse) + (1 - binding.t) * glm::inverse(binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);
+		binding.contourPoint = glm::vec3(transformInverseMat * glm::vec4(binding.contourPoint, 1.0f));
+		//// need this?
+		//glm::vec3 pos = binding.t * binding.childNode->restPose[3] + (1 - binding.t) * binding.parentNode->restPose[3];
+		//binding.closestPoint = glm::vec3(transformInverseMat * glm::vec4(pos, 1.0f));
+	}
+}
+
+void SceneNode::handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight, glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom) {
+	glm::vec2 clickPos;
+	clickPos = glm::vec2(xpos, ypos);
+	clickPos += glm::vec2(0.5f, 0.5f);
+	clickPos /= (glm::vec2(screenWidth, screenHeight));
+	clickPos = glm::vec2(clickPos.x, 1.0f - clickPos.y);
+	clickPos *= 2.0f;
+	clickPos -= glm::vec2(1.0f, 1.0f);
+
+	contourPoints.push_back(glm::vec3(clickPos, 0.0f));
+	std::cout << glm::to_string(clickPos) << std::endl;
+
+}

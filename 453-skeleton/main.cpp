@@ -35,6 +35,36 @@ void fillMappingGeometry(
 	}
 }
 
+// SharedState.h
+struct SharedState {
+	SceneNode* rootNode = nullptr;
+	glm::mat4 viewMatrix;
+	glm::mat4 projMatrix;
+	std::vector<glm::vec3> contour;
+	CPU_Geometry geom;
+};
+
+SharedState gSharedState;
+bool clicked;
+
+void mouseButtonCallback(GLFWwindow* window, int button, int action, int mods) {
+	if (button == GLFW_MOUSE_BUTTON_LEFT && action == GLFW_PRESS) {
+		clicked = true;
+		double xpos, ypos;
+		glfwGetCursorPos(window, &xpos, &ypos);
+
+		if (gSharedState.rootNode) {
+			gSharedState.rootNode->handleMouseClick(
+				xpos, ypos, 800.f, 800.f,
+				gSharedState.viewMatrix,
+				gSharedState.projMatrix,
+				gSharedState.contour,
+				gSharedState.geom
+			);
+		}
+	}
+}
+
 GLuint vao, vboPos, vboColor, ebo;
 
 void setupBuffers() {
@@ -87,12 +117,13 @@ int main() {
 	glfwMakeContextCurrent(window);
 	gladLoadGL();
 
+	glfwSetMouseButtonCallback(window, mouseButtonCallback);
+
 	glEnable(GL_DEPTH_TEST);
 	GLuint shader = ShaderLoader("D:/Program/C++/NewPhytologist2017/articulated-structure/articulated-structure/assets/shaders/test.vert", "D:/Program/C++/NewPhytologist2017/articulated-structure/articulated-structure/assets/shaders/test.frag").ID;
 
 	// create and bind VAO and VBO
 	setupBuffers();
-
 
 	// branch initialization
 	CPU_Geometry branchGeometry;
@@ -101,16 +132,22 @@ int main() {
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
-	root->generateInitialContourControlPoints(root);
+	std::vector<glm::vec3> contour;
+	contour = root->generateInitialContourControlPoints(root);
 	//std::vector<glm::vec3> contour = SceneNode::bSplineCurve(0, root);
-	std::vector<glm::vec3> contour = SceneNode::contourCatmullRom(root, 8);
+	contour = SceneNode::contourCatmullRom(contour, 8);
 	// branch-contour mapping
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
-	std::vector<std::pair<SceneNode*, SceneNode*>> branchPairs = root->getBranches(root, pairs);
-	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, branchPairs);
-	//std::vector<std::vector<ContourBinding>> bindingGroups = root->groupBindingsByBranch(bindings);
+	root->getBranches(root, pairs);
+	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
 	CPU_Geometry mappingLines;
 
+	// camera setup
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 6), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
+	glm::mat4 viewProj = proj * view;
+	glUseProgram(shader);
+	glUniformMatrix4fv(glGetUniformLocation(shader, "viewProj"), 1, GL_FALSE, glm::value_ptr(viewProj));
 	float lastTime = glfwGetTime();
 
 	while (!glfwWindowShouldClose(window)) {
@@ -119,6 +156,12 @@ int main() {
 		float currentTime = glfwGetTime();
 		float deltaTime = (currentTime - lastTime) / 10;
 		lastTime = currentTime;
+		//int state = glfwGetKey(window, GLFW_KEY_E);
+		//if (state == GLFW_PRESS)
+		//{
+		//	root->animate(deltaTime);
+		//}
+
 		root->animate(deltaTime);
 
 		// need to clear geometry before calling update to draw the new positions
@@ -133,19 +176,26 @@ int main() {
 			branchUpdates[i].indices.clear();
 		}
 
-		// camera setup
-		glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 6), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
-		glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
-		glm::mat4 viewProj = proj * view;
-		glUseProgram(shader);
-		glUniformMatrix4fv(glGetUniformLocation(shader, "viewProj"), 1, GL_FALSE, glm::value_ptr(viewProj));
-
 		// update branch position
 		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
-		root->interpolateBranchTransforms(branchPairs, branchUpdates);
+		root->interpolateBranchTransforms(pairs, branchUpdates);
 		//root->interpolateBranch(bindings, branchUpdates);
 
 		// contour
+		std::vector<glm::vec3> newContour = root->distanceBetweenContourPoints(contour);
+		if (root->contourChanged) {
+			pairs.clear();
+			bindings.clear();
+			// get deformed branches
+			root->getBranches(root, pairs);
+			// new binding (deformed binding)
+			bindings = root->bindContourToBranches(newContour, root, pairs);
+			root->contourChanged = false;
+
+			// need to apply inverse animation to contour and branch to move it back to the rest pose then can apply animation (below) so that we don't update the rest pose
+			root->inverseTransform(bindings);
+		}
+
 		contour = root->animateContour(bindings);
 		for (int i = 0; i < contour.size(); ++i) {
 			contourGeometry.verts.push_back(contour[i]);
@@ -161,7 +211,7 @@ int main() {
 			glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
 			int startIdx = mappingLines.verts.size();
 			mappingLines.verts.push_back(contour[i]);
-			mappingLines.verts.push_back(glm::vec3(animatedMat * glm::vec4(binding.closestPoint, 1.f)));
+			mappingLines.verts.push_back(binding.closestPoint);
 			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
 			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
 			mappingLines.indices.push_back(startIdx);     // from contour
@@ -190,9 +240,9 @@ int main() {
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
 
 		// Mapping (DEBUGGING PURPOSES)
-		updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
-		glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
-		draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
+		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		//glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
+		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
