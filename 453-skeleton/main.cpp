@@ -182,20 +182,23 @@ int main() {
 		//root->interpolateBranch(bindings, branchUpdates);
 
 		// contour
-		std::vector<glm::vec3> newContour = root->distanceBetweenContourPoints(contour);
+		contour = root->distanceBetweenContourPoints(contour);
 		if (root->contourChanged) {
 			pairs.clear();
 			bindings.clear();
 			// get deformed branches
 			root->getBranches(root, pairs);
 			// new binding (deformed binding)
-			bindings = root->bindContourToBranches(newContour, root, pairs);
+			bindings = root->bindContourToBranches(contour, root, pairs);
 			root->contourChanged = false;
 
 			// need to apply inverse animation to contour and branch to move it back to the rest pose then can apply animation (below) so that we don't update the rest pose
+			// this moves it back to the rest pose (for the contour points) in the global coordinate
 			root->inverseTransform(bindings);
 		}
 
+		// after moving to global rest pose, apply the relative transformation between the rest and transformed pose for the branch/skeleton
+		// global to local -> local to global
 		contour = root->animateContour(bindings);
 		for (int i = 0; i < contour.size(); ++i) {
 			contourGeometry.verts.push_back(contour[i]);
