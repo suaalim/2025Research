@@ -18,7 +18,8 @@ struct ContourBinding {
 	glm::vec3 contourPoint;
 	float t;                 
 	glm::vec3 closestPoint;
-	glm::mat4 previousAnimate;
+	glm::mat4 previousAnimateInverse;
+	std::vector<float> weights;
 };
 
 // SceneNode for Scene Graph
@@ -32,6 +33,8 @@ public:
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
 	void getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
+	void labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
+	std::vector<ContourBinding> bindContourToMultipleBranches(const std::vector<glm::vec3>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
 	std::vector<ContourBinding> bindContourToBranches(
 		const std::vector<glm::vec3>& contourPoints,
 		SceneNode* root,
@@ -42,10 +45,10 @@ public:
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
 	static std::vector<glm::vec3> contourCatmullRom(std::vector<glm::vec3> root, int points);
-	void interpolateBranch(const std::vector<ContourBinding>& bindings, CPU_Geometry& outGeometry);
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
 	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
 	void inverseTransform(std::vector<ContourBinding>& bindings);
+	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);
 	std::vector<glm::vec3> animationPerFrame(std::vector<ContourBinding>& bindings);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
 		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
@@ -58,6 +61,8 @@ public:
 	glm::mat4 restPose;
 	// animation matrix
 	glm::mat4 animation;
+	// previous frame's animation matrix
+	glm::mat4 previousAnimation;
 	// has contour been updated?
 	bool contourChanged = false;
 
