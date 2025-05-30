@@ -57,11 +57,12 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 	float childLength = length * 0.5f;
 
 	// CONSIDER ADDING A STEM BRANCH
-	std::vector<float> angles = { 0.f };
+	//std::vector<float> angles = { 0.f };
 	//std::vector<float> angles = { angle };
 	//std::vector<float> angles = { angle, 0.0f };
-	//std::vector<float> angles = { angle, 0.0f, -angle };
+	std::vector<float> angles = { angle, 0.0f, -angle };
 	//std::vector<float> angles = { angle, angle/2, -angle/2, -angle };
+	//std::vector<float> angles = { 90.0f, angle, 0.0f, -angle, -90.0f };
 
 	// selecting angles based on alternating structure or symmetric structure
 	std::vector<float> selectedAngles;
@@ -80,9 +81,9 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 		if (!child) continue;
 
 		// uniform scaling
-		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
 		// non-uniform scaling
-		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
+		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
 		glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
 		glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
@@ -109,9 +110,9 @@ void SceneNode::animate(float deltaTime) {
 
 	animationScaling += deltaTime * animationScaling;
 	// uniform scaling
-	//animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(animationScaling));
+	animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(animationScaling));
 	// non-uniform scaling
-	animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, animationScaling, 1.0f));
+	//animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, animationScaling, 1.0f));
 
 	for (SceneNode* child : children) {
 		child->animate(deltaTime);
@@ -120,17 +121,19 @@ void SceneNode::animate(float deltaTime) {
 
 // compute global transformation for all nodes recursively
 // to get the final position and draw
-void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry) {
+void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentAnimate, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry) {
 	// convert rotation quaternion back to matrix form
 	glm::mat4 animateRotationMatrix = glm::toMat4(animateRotation);
 	glm::mat4 localRotationMatrix = glm::toMat4(localRotation);
 	// local to global animated matrix: A = T*V
-	globalTransformation = parentTransform * animateRotationMatrix * localRotationMatrix * localTranslation * localScaling * animateScaling;
+	globalTransformation = parentTransform * animateScaling * localRotationMatrix * localTranslation * localScaling;  // scale in the local coordinate
 	// global to local rest post matrix
 	// need to apply parentRest outside because if not it will be double inversed (inverse every call)
 	restPoseInverse = glm::inverse(localRotationMatrix * localTranslation * localScaling) * parentRestInverse;
 	// rest pose matrix
 	restPose = parentRest * localRotationMatrix * localTranslation * localScaling;
+	// animation
+	animation = parentAnimate * animateScaling;
 	// global position of node
 	// for drawing purposes
 	glm::vec3 rootPos = glm::vec3(globalTransformation[3]);
@@ -150,7 +153,7 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 		outGeometry.indices.push_back(childIndex);
 
 		// recurse
-		child->updateBranch(globalTransformation, restPoseInverse, restPose, outGeometry);
+		child->updateBranch(globalTransformation, animation, restPoseInverse, restPose, outGeometry);
 	}
 }
 
@@ -196,7 +199,7 @@ std::vector<glm::vec3> SceneNode::generateInitialContourControlPoints(SceneNode*
 		glm::vec3 leafPos = leaf->globalTransformation[3];
 		glm::vec3 leafParentPos = leaf->parent->globalTransformation[3];
 		glm::vec3 dir = glm::normalize(leafPos - leafParentPos);
-		glm::vec3 offsetPos = leafPos + dir * 0.5f;
+		glm::vec3 offsetPos = leafPos + dir * 0.15f;
 		controlPoints.push_back(offsetPos);
 	}
 
@@ -306,7 +309,6 @@ void SceneNode::getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, S
 
 std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<glm::vec3>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments) {
 	std::vector<ContourBinding> bindings;
-
 	glm::vec3 rootPos = root->globalTransformation[3];
 
 	for (const glm::vec3& contourPoint : contourPoints) {
@@ -328,7 +330,7 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 
 			if (dist < minDist) {
 				minDist = dist;
-				bestBinding = { parent, child, contourPoint, t, closest };
+				bestBinding = { parent, child, contourPoint, t, closest, glm::mat4(1.0f)};
 				tie = false;
 			}
 			//// same distance
@@ -354,15 +356,19 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 }
 
 // interpolate the branch transformations and apply to contour points
-std::vector<glm::vec3> SceneNode::animateContour(const std::vector<ContourBinding>& bindings) {
+std::vector<glm::vec3> SceneNode::animateContour(std::vector<ContourBinding>& bindings) {
 	std::vector<glm::vec3> animatedPoints;
 
-	for (const auto& binding : bindings) {
+	for (auto& binding : bindings) {
 		// linearly interpolate matrix, then apply to the contour point
 		// NOTE: blending matrices don't work well, so need to multiply by the inverse first then blend
 		// P' = A'A-1P but before we interpolate
+
+		// my understanding: restPoseInverse moves the contour point wrt to the local coordinate frame that the root node is in
+		// then globalTransformation takes the contour point, all the way to where the node that it is binded to is, then apply the same transformation as the binded node
 		glm::mat4 animatedPosMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1 - binding.t) * (binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);
 		animatedPoints.push_back(animatedPosMat * glm::vec4(binding.contourPoint, 1.0f));
+		binding.previousAnimate = animatedPosMat;
 	}
 
 	return animatedPoints;
@@ -452,10 +458,27 @@ void SceneNode::inverseTransform(std::vector<ContourBinding>& bindings) {
 	for (auto& binding : bindings) {
 		glm::mat4 transformInverseMat = binding.t * glm::inverse(binding.childNode->globalTransformation * binding.childNode->restPoseInverse) + (1 - binding.t) * glm::inverse(binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);
 		binding.contourPoint = glm::vec3(transformInverseMat * glm::vec4(binding.contourPoint, 1.0f));
-		//// need this?
-		//glm::vec3 pos = binding.t * binding.childNode->restPose[3] + (1 - binding.t) * binding.parentNode->restPose[3];
-		//binding.closestPoint = glm::vec3(transformInverseMat * glm::vec4(pos, 1.0f));
 	}
+}
+
+// relative transformation between frame (global frame)
+// A(delta t)A-1
+std::vector<glm::vec3> SceneNode::animationPerFrame(std::vector<ContourBinding>& bindings) {
+	std::vector<glm::vec3> animatedPoints;
+	// need the previous frame's animation matrix and current frame's animation matrix
+	// update the contour point every frame (in the ContourBinding) so that you just apply the matrix to the contour point
+	// this is in the "global" frame
+
+	for (auto& binding : bindings) {
+		//printMat4(binding.previousAnimate);
+		glm::mat4 animatedPosMat = binding.t * binding.childNode->animation + (1 - binding.t) * (binding.parentNode->animation);
+		animatedPoints.push_back(animatedPosMat * glm::inverse(binding.previousAnimate) * glm::vec4(binding.contourPoint, 1.0f));
+		/*printMat4(animatedPosMat * glm::inverse(binding.previousAnimate));*/
+		binding.contourPoint = animatedPosMat * glm::inverse(binding.previousAnimate) * glm::vec4(binding.contourPoint, 1.0f);
+		binding.previousAnimate = animatedPosMat;
+		//printMat4(binding.previousAnimate);
+	}
+	return animatedPoints;
 }
 
 void SceneNode::handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight, glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom) {

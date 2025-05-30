@@ -129,7 +129,7 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 	SceneNode* root = SceneNode::createBranch(0, 1, 45.0f, 1.0f, false);
-	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
@@ -141,9 +141,11 @@ int main() {
 	root->getBranches(root, pairs);
 	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
 	CPU_Geometry mappingLines;
+	// previous animation
+	glm::mat4 previousAnimation;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 6), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -156,13 +158,13 @@ int main() {
 		float currentTime = glfwGetTime();
 		float deltaTime = (currentTime - lastTime) / 10;
 		lastTime = currentTime;
-		//int state = glfwGetKey(window, GLFW_KEY_E);
-		//if (state == GLFW_PRESS)
-		//{
-		//	root->animate(deltaTime);
-		//}
+		int state = glfwGetKey(window, GLFW_KEY_E);
+		if (state == GLFW_PRESS)
+		{
+			root->animate(deltaTime);
+		}
 
-		root->animate(deltaTime);
+		//root->animate(deltaTime);
 
 		// need to clear geometry before calling update to draw the new positions
 		branchGeometry.verts.clear();
@@ -177,12 +179,30 @@ int main() {
 		}
 
 		// update branch position
-		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 		root->interpolateBranchTransforms(pairs, branchUpdates);
 		//root->interpolateBranch(bindings, branchUpdates);
 
 		// contour
 		contour = root->distanceBetweenContourPoints(contour);
+		//if (root->contourChanged) {
+		//	pairs.clear();
+		//	bindings.clear();
+		//	// get deformed branches
+		//	root->getBranches(root, pairs);
+		//	// new binding (deformed binding)
+		//	bindings = root->bindContourToBranches(contour, root, pairs);
+		//	root->contourChanged = false;
+
+		//	// need to apply inverse animation to contour to move it back to the rest pose then can apply animation (below) so that we don't update the rest pose
+		//	// this moves it back to the rest pose (for the contour points) in the global coordinate (where it started originally)
+		//	//root->inverseTransform(bindings);
+		//}
+
+		// after moving to global rest pose, apply (to the contour point) the relative transformation between the rest and transformed pose for the branch/skeleton it is binded to 
+		// global to local -> local to global
+		// but because we "rebind" in the deformed position (and not move the whole thing back to non-deformed position), now the new binding is the deformed position
+		//contour = root->animateContour(bindings);
 		if (root->contourChanged) {
 			pairs.clear();
 			bindings.clear();
@@ -192,14 +212,8 @@ int main() {
 			bindings = root->bindContourToBranches(contour, root, pairs);
 			root->contourChanged = false;
 
-			// need to apply inverse animation to contour and branch to move it back to the rest pose then can apply animation (below) so that we don't update the rest pose
-			// this moves it back to the rest pose (for the contour points) in the global coordinate
-			root->inverseTransform(bindings);
 		}
-
-		// after moving to global rest pose, apply the relative transformation between the rest and transformed pose for the branch/skeleton
-		// global to local -> local to global
-		contour = root->animateContour(bindings);
+		contour = root->animationPerFrame(bindings);
 		for (int i = 0; i < contour.size(); ++i) {
 			contourGeometry.verts.push_back(contour[i]);
 			contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
@@ -243,9 +257,9 @@ int main() {
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
 
 		// Mapping (DEBUGGING PURPOSES)
-		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
-		//glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
-		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
+		updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
+		draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

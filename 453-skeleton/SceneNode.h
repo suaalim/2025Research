@@ -18,6 +18,7 @@ struct ContourBinding {
 	glm::vec3 contourPoint;
 	float t;                 
 	glm::vec3 closestPoint;
+	glm::mat4 previousAnimate;
 };
 
 // SceneNode for Scene Graph
@@ -26,7 +27,7 @@ public:
 	SceneNode();
 	void addChild(SceneNode* child);
 	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate);
-	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
+	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentAnimate, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
@@ -36,7 +37,7 @@ public:
 		SceneNode* root,
 		std::vector<std::pair<SceneNode*, SceneNode*>>&
 	);
-	std::vector<glm::vec3> animateContour(const std::vector<ContourBinding>& bindings);
+	std::vector<glm::vec3> animateContour(std::vector<ContourBinding>& bindings);
 	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
@@ -45,6 +46,7 @@ public:
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
 	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
 	void inverseTransform(std::vector<ContourBinding>& bindings);
+	std::vector<glm::vec3> animationPerFrame(std::vector<ContourBinding>& bindings);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
 		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
 	
@@ -54,6 +56,8 @@ public:
 	glm::mat4 restPoseInverse;
 	// rest pose
 	glm::mat4 restPose;
+	// animation matrix
+	glm::mat4 animation;
 	// has contour been updated?
 	bool contourChanged = false;
 
@@ -74,6 +78,6 @@ private:
 	float animationAngle = 0.0f;
 	float animationScaling = 1.0f;
 	float animationTime = 0.0f;
-	float animationDuration = 0.3f; // how long the animation lasts
+	float animationDuration = 0.5f; // how long the animation lasts
 
 };
