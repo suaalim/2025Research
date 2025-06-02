@@ -20,6 +20,7 @@ struct ContourBinding {
 	glm::vec3 closestPoint;
 	glm::mat4 previousAnimateInverse;
 	std::vector<float> weights;
+	std::vector<glm::mat4> previousAnimateInverseMat;
 };
 
 // SceneNode for Scene Graph
@@ -28,7 +29,7 @@ public:
 	SceneNode();
 	void addChild(SceneNode* child);
 	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate);
-	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentAnimate, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
+	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
@@ -50,6 +51,8 @@ public:
 	void inverseTransform(std::vector<ContourBinding>& bindings);
 	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);
 	std::vector<glm::vec3> animationPerFrame(std::vector<ContourBinding>& bindings);
+	void multipleWeights(std::vector<ContourBinding>& bindings);
+	std::vector<glm::vec3> animationPerFrameUsingMultipleWeights(std::vector<ContourBinding>& bindings, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
 		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
 	
