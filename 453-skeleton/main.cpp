@@ -111,6 +111,8 @@ void draw(GLenum primitive, GLsizei vertexCount, GLsizei indexCount) {
 	glDrawElements(primitive, indexCount, GL_UNSIGNED_INT, 0);
 }
 
+#include <iomanip>
+
 int main() {
 	glfwInit();
 	GLFWwindow* window = glfwCreateWindow(800, 800, "Branching Structure", NULL, NULL);
@@ -128,7 +130,7 @@ int main() {
 	// branch initialization
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	SceneNode* root = SceneNode::createBranch(0, 1, 45.0f, 1.0f, false);
+	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
@@ -142,9 +144,21 @@ int main() {
 	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
 	// multiple branch-contour mapping
 	std::vector<std::tuple<SceneNode*, SceneNode*, int>> multiplePairs;
-	root->labelBranches(root, multiplePairs);
+	int branchLabel = 0;
+	root->labelBranches(root, multiplePairs, branchLabel);
 	std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);
-	root->multipleWeights(multipleBindings);
+	for (int i = 0; i <= 1; i++) {
+		root->multipleWeights(multipleBindings);
+		//for (int i = 0; i < multipleBindings.size(); i++) {
+		//	for (auto j : multipleBindings[i].weights) {
+		//		std::cout << std::fixed << std::setprecision(2) <<j << "\t";
+		//	}
+		//	std::cout << std::endl;
+		//}
+	}
+
+	root->bindToBranchingPoint(multipleBindings, multiplePairs);
+
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
@@ -176,7 +190,7 @@ int main() {
 		branchGeometry.indices.clear();
 		contourGeometry.verts.clear();
 		contourGeometry.cols.clear();
-		for (int i = 0; i < branchUpdates.size(); ++i) {
+		for (int i = 0; i < branchUpdates.size(); i++) {
 			branchUpdates[i].verts.clear();
 			branchUpdates[i].cols.clear();
 			branchUpdates[i].indices.clear();
@@ -213,9 +227,9 @@ int main() {
 		// 
 		//// add contour point if necessary and bind
 		////bindings = root->addContourPoints(bindings);
-		//contour = root->animationPerFrame(bindings);
-		//for (int i = 0; i < contour.size(); ++i) {
-		//	contourGeometry.verts.push_back(contour[i]);
+		//root->animationPerFrame(bindings);
+		//for (int i = 0; i < bindings.size(); i++) {
+		//	contourGeometry.verts.push_back(bindings[i].contourPoint);
 		//	contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
 		//}
 
@@ -227,29 +241,29 @@ int main() {
 		}
 		root->interpolateBranchTransforms(p, branchUpdates);
 
-		//multipleBindings = root->addContourPoints(multipleBindings);
-		contour = root->animationPerFrameUsingMultipleWeights(multipleBindings, multiplePairs);
-		for (int i = 0; i < contour.size(); ++i) {
-			contourGeometry.verts.push_back(contour[i]);
+		multipleBindings = root->addContourPoints(multipleBindings);
+		root->animationPerFrameUsingMultipleWeights(multipleBindings, multiplePairs);
+		for (int i = 0; i < multipleBindings.size(); i++) {
+			contourGeometry.verts.push_back(multipleBindings[i].contourPoint);
 			contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
 		}
 
-		//mappingLines.verts.clear();
-		//mappingLines.indices.clear();
+		mappingLines.verts.clear();
+		mappingLines.indices.clear();
 
-		//// UPDATE ONCE BRANCHES INTERPOLATE
-		//int i = 0;
-		//for (const auto& binding : multipleBindings) {
-		//	glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
-		//	int startIdx = mappingLines.verts.size();
-		//	mappingLines.verts.push_back(contour[i]);
-		//	mappingLines.verts.push_back(binding.closestPoint);
-		//	mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
-		//	mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
-		//	mappingLines.indices.push_back(startIdx);     // from contour
-		//	mappingLines.indices.push_back(startIdx + 1); // to closest branch point
-		//	++i;
-		//}
+		// UPDATE ONCE BRANCHES INTERPOLATE
+		int i = 0;
+		for (const auto& binding : multipleBindings) {
+			glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
+			int startIdx = mappingLines.verts.size();
+			mappingLines.verts.push_back(binding.contourPoint);
+			mappingLines.verts.push_back(binding.closestPoint);
+			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
+			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
+			mappingLines.indices.push_back(startIdx);     // from contour
+			mappingLines.indices.push_back(startIdx + 1); // to closest branch point
+			++i;
+		}
 
 		glPointSize(5);
 		// Branch
@@ -259,7 +273,7 @@ int main() {
 		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
 
 		// Interpolated branch
-		for (int i = 0; i < branchUpdates.size(); ++i) {
+		for (int i = 0; i < branchUpdates.size(); i++) {
 			updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
 			glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
 			glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
