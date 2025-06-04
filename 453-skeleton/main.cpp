@@ -147,7 +147,8 @@ int main() {
 	int branchLabel = 0;
 	root->labelBranches(root, multiplePairs, branchLabel);
 	std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);
-	for (int i = 0; i <= 1; i++) {
+	root->bindToBranchingPoint(multipleBindings, multiplePairs);
+	for (int i = 0; i <= 4; i++) {
 		root->multipleWeights(multipleBindings);
 		//for (int i = 0; i < multipleBindings.size(); i++) {
 		//	for (auto j : multipleBindings[i].weights) {
@@ -157,13 +158,11 @@ int main() {
 		//}
 	}
 
-	root->bindToBranchingPoint(multipleBindings, multiplePairs);
-
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 4), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
