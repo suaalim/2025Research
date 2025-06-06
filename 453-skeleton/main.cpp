@@ -137,7 +137,7 @@ int main() {
 
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	SceneNode* root = SceneNode::createBranch(0, 3, 45.0f, 1.0f, false, angles);
+	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false, angles);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;

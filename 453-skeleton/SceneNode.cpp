@@ -647,6 +647,7 @@ void SceneNode::bindToBranchingPoint(std::vector<ContourBinding>& bindings, std:
 	bindings[0].t = 1.f;
 	bindings[0].closestPoint = (bindings[0].t * bindings[0].childNode->globalTransformation[3] + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation[3]);
 	std::fill(bindings[0].weights.begin(), bindings[0].weights.end(), 0);
+	// assign weight to the first branch (root stem branch)
 	bindings[0].weights[0] = 1.f;
 	bindings[0].previousAnimateInverse = glm::inverse(bindings[0].t * bindings[0].childNode->globalTransformation + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation);
 	bindings[0].previousAnimateInverseMat[0] = glm::inverse(bindings[0].t * bindings[0].childNode->globalTransformation + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation);
@@ -656,6 +657,7 @@ void SceneNode::bindToBranchingPoint(std::vector<ContourBinding>& bindings, std:
 	bindings[bindings.size() - 1].t = 1.f;
 	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
 	std::fill(bindings[bindings.size() - 1].weights.begin(), bindings[bindings.size() - 1].weights.end(), 0);
+	// assign weight to the first branch (root stem branch)
 	bindings[bindings.size() - 1].weights[0] = 1.f;
 	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[0].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation);
 	bindings[bindings.size() - 1].previousAnimateInverseMat[0] = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[0].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
