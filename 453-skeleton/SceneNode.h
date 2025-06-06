@@ -28,7 +28,7 @@ class SceneNode {
 public:
 	SceneNode();
 	void addChild(SceneNode* child);
-	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate);
+	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate, std::vector<float> selectedAngles);
 	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);

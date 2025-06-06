@@ -128,9 +128,16 @@ int main() {
 	setupBuffers();
 
 	// branch initialization
+	//std::vector<float> angles = { 0.f };
+	//std::vector<float> angles = { 45.0f };
+	//std::vector<float> angles = { 45.0f, 0.0f };
+	std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
+	//std::vector<float> angles = { 45.0f, 45.0f/2, -45.0f/2, -45.0f };
+	//std::vector<float> angles = { 90.0f, 45.0f, 0.0f, -45.0f, -90.0f };
+
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false);
+	SceneNode* root = SceneNode::createBranch(0, 3, 45.0f, 1.0f, false, angles);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
@@ -150,6 +157,7 @@ int main() {
 	root->bindToBranchingPoint(multipleBindings, multiplePairs);
 	for (int i = 0; i <= 4; i++) {
 		root->multipleWeights(multipleBindings);
+		//std::cout << "--------------------------------" << std::endl;
 		//for (int i = 0; i < multipleBindings.size(); i++) {
 		//	for (auto j : multipleBindings[i].weights) {
 		//		std::cout << std::fixed << std::setprecision(2) <<j << "\t";
