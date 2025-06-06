@@ -19,8 +19,6 @@ struct ContourBinding {
 	float t;                 
 	glm::vec3 closestPoint;
 	glm::mat4 previousAnimateInverse;
-	std::vector<float> weights;
-	std::vector<glm::mat4> previousAnimateInverseMat;
 };
 
 // SceneNode for Scene Graph
@@ -41,19 +39,18 @@ public:
 		SceneNode* root,
 		std::vector<std::pair<SceneNode*, SceneNode*>>&
 	);
-	std::vector<glm::vec3> animateContour(std::vector<ContourBinding>& bindings);
 	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
+	std::vector<ContourBinding> branchingPointMap(std::vector<ContourBinding>& contourPoints);
+	std::vector<ContourBinding> interpolateBetweenContour(std::vector<ContourBinding>& contourPoints);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
 	static std::vector<glm::vec3> contourCatmullRom(std::vector<glm::vec3> root, int points);
+	std::vector<std::vector<glm::vec3>> contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment);
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
 	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
 	void inverseTransform(std::vector<ContourBinding>& bindings);
 	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);
 	void animationPerFrame(std::vector<ContourBinding>& bindings);
-	void multipleWeights(std::vector<ContourBinding>& bindings);
-	void animationPerFrameUsingMultipleWeights(std::vector<ContourBinding>& bindings, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
-	void bindToBranchingPoint(std::vector<ContourBinding>& bindings, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
 		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
 	
@@ -66,9 +63,10 @@ public:
 	// has contour been updated?
 	bool contourChanged = false;
 
-private:
 	SceneNode* parent;
 	std::vector<SceneNode*> children;
+
+private:
 	// T trasformation (rest pose)
 	glm::mat4 localTranslation;
 	glm::quat localRotation;

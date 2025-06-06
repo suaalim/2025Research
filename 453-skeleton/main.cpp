@@ -136,8 +136,7 @@ int main() {
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
 	contour = root->generateInitialContourControlPoints(root);
-	//std::vector<glm::vec3> contour = SceneNode::bSplineCurve(0, root);
-	contour = SceneNode::contourCatmullRom(contour, 8);
+	//contour = SceneNode::contourCatmullRom(contour,5);
 	// branch-contour mapping
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
 	root->getBranches(root, pairs);
@@ -157,6 +156,7 @@ int main() {
 		//	std::cout << std::endl;
 		//}
 	}
+
 
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
@@ -220,40 +220,20 @@ int main() {
 		//// but because we "rebind" in the deformed position (and not move the whole thing back to non-deformed position), now the new binding is the deformed position
 		////contour = root->animateContour(bindings);
 
-		//// update branch position
-		//root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
-		//root->interpolateBranchTransforms(pairs, branchUpdates);
-		// 
-		//// add contour point if necessary and bind
-		////bindings = root->addContourPoints(bindings);
-		//root->animationPerFrame(bindings);
-		//for (int i = 0; i < bindings.size(); i++) {
-		//	contourGeometry.verts.push_back(bindings[i].contourPoint);
-		//	contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
-		//}
-
-		// multiple branches
+		// update branch position
 		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
-		std::vector<std::pair<SceneNode*, SceneNode*>> p;
-		for (const auto& tup : multiplePairs) {
-			p.emplace_back(std::get<0>(tup), std::get<1>(tup));
-		}
-		root->interpolateBranchTransforms(p, branchUpdates);
-
-		multipleBindings = root->addContourPoints(multipleBindings);
-		root->animationPerFrameUsingMultipleWeights(multipleBindings, multiplePairs);
-		for (int i = 0; i < multipleBindings.size(); i++) {
-			contourGeometry.verts.push_back(multipleBindings[i].contourPoint);
-			contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
-		}
+		root->interpolateBranchTransforms(pairs, branchUpdates);
+		 
+		// add contour point if necessary and bind
+		//bindings = root->addContourPoints(bindings);
+		root->animationPerFrame(bindings);
 
 		mappingLines.verts.clear();
 		mappingLines.indices.clear();
 
 		// UPDATE ONCE BRANCHES INTERPOLATE
 		int i = 0;
-		for (const auto& binding : multipleBindings) {
-			glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
+		for (const auto& binding : bindings) {
 			int startIdx = mappingLines.verts.size();
 			mappingLines.verts.push_back(binding.contourPoint);
 			mappingLines.verts.push_back(binding.closestPoint);
@@ -262,6 +242,15 @@ int main() {
 			mappingLines.indices.push_back(startIdx);     // from contour
 			mappingLines.indices.push_back(startIdx + 1); // to closest branch point
 			++i;
+		}
+
+		//contourGeometry.verts = contour;
+		// interpolate contour points using catmullrom here
+		for(int i = 0; i < bindings.size(); i++) {
+			contourGeometry.verts.push_back(bindings[i].contourPoint);
+		}
+		for (int i = 0; i < contourGeometry.verts.size(); i++) {
+			contourGeometry.cols.push_back(glm::vec3(1.f, 0.f, 0.f));
 		}
 
 		glPointSize(5);

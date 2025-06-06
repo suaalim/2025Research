@@ -332,25 +332,102 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 		bindings.push_back(bestBinding);
 	}
 
+	// first and last contour points are mapped to the root
+	bindings[0].parentNode = std::get<0>(segments[1]);
+	bindings[0].childNode = std::get<1>(segments[1]);
+	bindings[0].t = 0.f;
+	bindings[0].closestPoint = (bindings[0].t * bindings[0].childNode->globalTransformation[3] + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation[3]);
+	bindings[0].previousAnimateInverse = glm::inverse(bindings[0].t * bindings[0].childNode->globalTransformation + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation);
+
+	bindings[bindings.size() - 1].parentNode = std::get<0>(segments[1]);
+	bindings[bindings.size() - 1].childNode = std::get<1>(segments[1]);
+	bindings[bindings.size() - 1].t = 0.f;
+	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
+	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
+
 	return bindings;
 }
 
-// interpolate the branch transformations and apply to contour points
-std::vector<glm::vec3> SceneNode::animateContour(std::vector<ContourBinding>& bindings) {
-	std::vector<glm::vec3> animatedPoints;
+// get midpoint of the contourPoints and map to branching points
+std::vector<ContourBinding> SceneNode::branchingPointMap(std::vector<ContourBinding>& contourPoints) {
+	std::vector<ContourBinding> copyOfContour;
+	copyOfContour.push_back(contourPoints[0]);
+	for (int i = 1; i < contourPoints.size() - 2; i++) {
+		// midpoint is binded to the parent branch of the original points
+		copyOfContour.push_back(contourPoints[i]);
+		ContourBinding newContour;
+		newContour.parentNode = contourPoints[i].parentNode->parent;
+		newContour.childNode = contourPoints[i].parentNode;
+		newContour.contourPoint = (contourPoints[i].contourPoint + contourPoints[i + 1].contourPoint) / 2.f;
+		newContour.t = 1.f;
+		newContour.closestPoint = (newContour.t * newContour.childNode->globalTransformation[3] + (1 - newContour.t) * newContour.parentNode->globalTransformation[3]);
+		newContour.previousAnimateInverse = glm::inverse((newContour.t * newContour.childNode->globalTransformation + (1 - newContour.t) * newContour.parentNode->globalTransformation));
+		copyOfContour.push_back(newContour);
+	}
+	copyOfContour.push_back(contourPoints[contourPoints.size() - 2]);
+	copyOfContour.push_back(contourPoints[contourPoints.size() - 1]);
+	return copyOfContour;
+}
 
-	for (auto& binding : bindings) {
-		// linearly interpolate matrix, then apply to the contour point
-		// NOTE: blending matrices don't work well, so need to multiply by the inverse first then blend
-		// P' = A'A-1P but before we interpolate
+// bind the interpolated points to the branch using blending
+std::vector<ContourBinding> SceneNode::interpolateBetweenContour(std::vector<ContourBinding>& contourPoints) {
+	std::vector<ContourBinding> copyOfContour;
+	copyOfContour.push_back(contourPoints[0]);
+	for (int i = 0; i < contourPoints.size() - 1; i++) {
+		copyOfContour.push_back(contourPoints[i]);
+		std::vector<glm::vec3> points = contourCatmullRom({ contourPoints[i].contourPoint, contourPoints[i + 1].contourPoint }, 6);
+		for (int j = 1; j < points.size() - 1; j++) {
+			ContourBinding newContour;
+			if (i % 2 == 1) {
+				newContour.parentNode = contourPoints[i].parentNode;
+				newContour.childNode = contourPoints[i].childNode;
+				newContour.t = 1 - (j / (float)points.size());
+			}
+			else {
+				newContour.parentNode = contourPoints[i + 1].parentNode;
+				newContour.childNode = contourPoints[i + 1].childNode;
+				newContour.t = j / (float)points.size();
+			}
+			newContour.contourPoint = points[j];
+			newContour.closestPoint = (newContour.t * newContour.childNode->globalTransformation[3] + (1 - newContour.t) * newContour.parentNode->globalTransformation[3]);
+			newContour.previousAnimateInverse = glm::inverse((newContour.t * newContour.childNode->globalTransformation + (1 - newContour.t) * newContour.parentNode->globalTransformation));
+			copyOfContour.push_back(newContour);
+		}
+	}
+	copyOfContour.push_back(contourPoints[contourPoints.size() - 1]);
+	return copyOfContour;
+}
 
-		// my understanding: restPoseInverse moves the contour point wrt to the local coordinate frame that the root node is in
-		// then globalTransformation takes the contour point, all the way to where the node that it is binded to is, then apply the same transformation as the binded node
-		glm::mat4 animatedPosMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1 - binding.t) * (binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);
-		animatedPoints.push_back(animatedPosMat * glm::vec4(binding.contourPoint, 1.0f));
+std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment) {
+	std::vector<std::vector<glm::vec3>> groupedCurvePoints;
+
+	std::vector<glm::vec3> paddedPoints;
+	glm::vec3 first = controlPoints[0] + (controlPoints[0] - controlPoints[1]);
+	glm::vec3 last = controlPoints.back() + (controlPoints.back() - controlPoints[controlPoints.size() - 2]);
+
+	paddedPoints.push_back(first);
+	paddedPoints.insert(paddedPoints.end(), controlPoints.begin(), controlPoints.end());
+	paddedPoints.push_back(last);
+
+	for (size_t i = 0; i < controlPoints.size() - 1; i++) {
+		std::vector<glm::vec3> segmentPoints;
+
+		for (int j = 0; j <= pointsPerSegment; j++) {
+			float t = float(j) / pointsPerSegment;
+			glm::vec3 pt = glm::catmullRom(
+				paddedPoints[i],
+				paddedPoints[i + 1],
+				paddedPoints[i + 2],
+				paddedPoints[i + 3],
+				t
+			);
+			segmentPoints.push_back(pt);
+		}
+
+		groupedCurvePoints.push_back(segmentPoints);
 	}
 
-	return animatedPoints;
+	return groupedCurvePoints;
 }
 
 // interpolate branches 
@@ -408,15 +485,6 @@ void SceneNode::inverseTransform(std::vector<ContourBinding>& bindings) {
 }
 
 // add a new point to the curve
-// when adding, get its neighbors and the branch that it belongs to
-// calculate the closest point using those branches
-// then you can get the animation matrix from the deformed branch
-// will need to update the position of the contour point each frame
-
-// change so that instead of copying the vector everytime, just insert to the right index
-// need a way to initialize the weight vector and previous animation matrix list
-// for the weights, take the average with its neighbors
-// for animation inverse matrices, isert the inverse for this new added point to the previous list -> keep track of the index of the added point
 std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBinding>& bindings) {
 	std::vector<ContourBinding> newBindingSet;
 	// arbitrary threshold
@@ -442,14 +510,15 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 				t1 = glm::clamp(t1, 0.0f, 1.0f);
 				glm::mat4 previousiInverseAnimationMat = glm::inverse(t1 * bindings[i].childNode->globalTransformation + (1 - t1) * bindings[i].parentNode->globalTransformation);
 				newBindingSet.push_back(bindings[i]);
-				newBindingSet.push_back({ bindings[i].parentNode, bindings[i].childNode, newPoint, t1, proj1, previousiInverseAnimationMat, bindings[i].weights, bindings[i].previousAnimateInverseMat });
+				newBindingSet.push_back({ bindings[i].parentNode, bindings[i].childNode, newPoint, t1, proj1, previousiInverseAnimationMat });
 			}
 			else {
 				float t2 = glm::dot(secondNeighborChild - secondNeighborParent, newPoint - secondNeighborParent) / glm::dot(secondNeighborChild - secondNeighborParent, secondNeighborChild - secondNeighborParent);
 				t2 = glm::clamp(t2, 0.0f, 1.0f);
 				glm::mat4 previousiInverseAnimationMat = glm::inverse(t2 * bindings[i + 1].childNode->globalTransformation + (1 - t2) * bindings[i + 1].parentNode->globalTransformation);
 				newBindingSet.push_back(bindings[i]);
-				newBindingSet.push_back({ bindings[i + 1].parentNode, bindings[i + 1].childNode, newPoint, t2, proj2, previousiInverseAnimationMat, bindings[i + 1].weights, bindings[i + 1].previousAnimateInverseMat });
+				newBindingSet.push_back({ bindings[i + 1].parentNode, bindings[i + 1].childNode, newPoint, t2, proj2, previousiInverseAnimationMat });
+				newBindingSet.push_back({ bindings[i + 1].parentNode, bindings[i + 1].childNode, newPoint, t2, proj2, previousiInverseAnimationMat });
 			}
 		}
 		else {
@@ -472,8 +541,6 @@ void SceneNode::animationPerFrame(std::vector<ContourBinding>& bindings) {
 		binding.previousAnimateInverse = glm::inverse(binding.t * binding.childNode->globalTransformation + (1 - binding.t) *binding.parentNode->globalTransformation);
 	}
 }
-
-// MULTIPLE BRANCHES
 
 // label the branches by indices
 void SceneNode::labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments, int& i) {
