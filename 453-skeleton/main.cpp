@@ -73,13 +73,13 @@ void setupBuffers() {
 
 	glGenBuffers(1, &vboPos);
 	glBindBuffer(GL_ARRAY_BUFFER, vboPos);
-	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);  
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	glEnableVertexAttribArray(0);
 
 	glGenBuffers(1, &vboColor);
 	glBindBuffer(GL_ARRAY_BUFFER, vboColor);
-	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);  
+	glBufferData(GL_ARRAY_BUFFER, 0, nullptr, GL_DYNAMIC_DRAW);
 	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 0, (void*)0);
 	glEnableVertexAttribArray(1);
 
@@ -128,9 +128,16 @@ int main() {
 	setupBuffers();
 
 	// branch initialization
+	//std::vector<float> angles = { 0.f };
+	//std::vector<float> angles = { 45.0f };
+	//std::vector<float> angles = { 45.0f, -45.0f };
+	std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
+	//std::vector<float> angles = { 45.0f, 45.0f/2, -45.0f/2, -45.0f };
+	//std::vector<float> angles = { 90.0f, 45.0f, 0.0f, -45.0f, -90.0f };
+
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false);
+	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false, angles);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
@@ -140,24 +147,9 @@ int main() {
 	// branch-contour mapping
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
 	root->getBranches(root, pairs);
-	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
-	// multiple branch-contour mapping
-	std::vector<std::tuple<SceneNode*, SceneNode*, int>> multiplePairs;
-	int branchLabel = 0;
-	root->labelBranches(root, multiplePairs, branchLabel);
-	std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);
-	root->bindToBranchingPoint(multipleBindings, multiplePairs);
-	for (int i = 0; i <= 4; i++) {
-		root->multipleWeights(multipleBindings);
-		//for (int i = 0; i < multipleBindings.size(); i++) {
-		//	for (auto j : multipleBindings[i].weights) {
-		//		std::cout << std::fixed << std::setprecision(2) <<j << "\t";
-		//	}
-		//	std::cout << std::endl;
-		//}
-	}
-
-
+	std::vector<ContourBinding> b = root->bindContourToBranches(contour, root, pairs);
+	std::vector<ContourBinding> b2 = root->branchingPointMap(b);
+	std::vector<ContourBinding> bindings = root->interpolateBetweenContour(b2);
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
@@ -223,7 +215,7 @@ int main() {
 		// update branch position
 		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 		root->interpolateBranchTransforms(pairs, branchUpdates);
-		 
+
 		// add contour point if necessary and bind
 		//bindings = root->addContourPoints(bindings);
 		root->animationPerFrame(bindings);
@@ -246,7 +238,7 @@ int main() {
 
 		//contourGeometry.verts = contour;
 		// interpolate contour points using catmullrom here
-		for(int i = 0; i < bindings.size(); i++) {
+		for (int i = 0; i < bindings.size(); i++) {
 			contourGeometry.verts.push_back(bindings[i].contourPoint);
 		}
 		for (int i = 0; i < contourGeometry.verts.size(); i++) {
