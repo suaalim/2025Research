@@ -27,7 +27,7 @@ public:
 	SceneNode();
 	void addChild(SceneNode* child);
 	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate, std::vector<float> selectedAngles);
-	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentAnimation, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
+	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
@@ -61,8 +61,6 @@ public:
 	glm::mat4 restPoseInverse;
 	// rest pose
 	glm::mat4 restPose;
-	// animation
-	glm::mat4 animation;
 	// has contour been updated?
 	bool contourChanged = false;
 

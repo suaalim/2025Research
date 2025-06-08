@@ -138,7 +138,7 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false, angles);
-	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.f), branchGeometry);
+	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
@@ -189,33 +189,8 @@ int main() {
 			branchUpdates[i].indices.clear();
 		}
 
-		//// update branch position
-		//root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
-		//root->interpolateBranchTransforms(pairs, branchUpdates);
-
-		//// contour
-		////contour = root->distanceBetweenContourPoints(contour);
-		////if (root->contourChanged) {
-		////	pairs.clear();
-		////	bindings.clear();
-		////	// get deformed branches
-		////	root->getBranches(root, pairs);
-		////	// new binding (deformed binding)
-		////	bindings = root->bindContourToBranches(contour, root, pairs);
-		////	root->contourChanged = false;
-
-		////	// need to apply inverse animation to contour to move it back to the rest pose then can apply animation (below) so that we don't update the rest pose
-		////	// this moves it back to the rest pose (for the contour points) in the global coordinate (where it started originally)
-		////	//root->inverseTransform(bindings);
-		////}
-
-		//// after moving to global rest pose, apply (to the contour point) the relative transformation between the rest and transformed pose for the branch/skeleton it is binded to 
-		//// global to local -> local to global
-		//// but because we "rebind" in the deformed position (and not move the whole thing back to non-deformed position), now the new binding is the deformed position
-		////contour = root->animateContour(bindings);
-
 		// update branch position
-		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.f), branchGeometry);
+		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 		root->interpolateBranchTransforms(pairs, branchUpdates);
 
 		// add contour point if necessary and bind
