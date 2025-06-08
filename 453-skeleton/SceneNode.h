@@ -27,7 +27,7 @@ public:
 	SceneNode();
 	void addChild(SceneNode* child);
 	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate, std::vector<float> selectedAngles);
-	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
+	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentAnimation, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
@@ -46,9 +46,10 @@ public:
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
 	static std::vector<glm::vec3> contourCatmullRom(std::vector<glm::vec3> root, int points);
 	std::vector<std::vector<glm::vec3>> contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment);
+	std::vector<glm::vec3> midPoints(std::vector<glm::vec3>& contourPoints);
+	std::vector<ContourBinding> bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
 	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
-	void inverseTransform(std::vector<ContourBinding>& bindings);
 	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);
 	void animationPerFrame(std::vector<ContourBinding>& bindings);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
@@ -60,6 +61,8 @@ public:
 	glm::mat4 restPoseInverse;
 	// rest pose
 	glm::mat4 restPose;
+	// animation
+	glm::mat4 animation;
 	// has contour been updated?
 	bool contourChanged = false;
 

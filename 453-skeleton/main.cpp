@@ -138,18 +138,20 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false, angles);
-	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
 	contour = root->generateInitialContourControlPoints(root);
+	contour = root->midPoints(contour);
+	std::vector<std::vector<glm::vec3>> groupedContour = root->contourCatmullRomGrouped(contour, 8);
 	//contour = SceneNode::contourCatmullRom(contour,5);
 	// branch-contour mapping
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
 	root->getBranches(root, pairs);
-	std::vector<ContourBinding> b = root->bindContourToBranches(contour, root, pairs);
-	std::vector<ContourBinding> b2 = root->branchingPointMap(b);
-	std::vector<ContourBinding> bindings = root->interpolateBetweenContour(b2);
+	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);
+	//std::vector<ContourBinding> bindings = root->branchingPointMap(b);
+	//std::vector<ContourBinding> bindings = root->interpolateBetweenContour(b2);
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
@@ -213,7 +215,7 @@ int main() {
 		////contour = root->animateContour(bindings);
 
 		// update branch position
-		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.f), branchGeometry);
 		root->interpolateBranchTransforms(pairs, branchUpdates);
 
 		// add contour point if necessary and bind
@@ -236,7 +238,6 @@ int main() {
 			++i;
 		}
 
-		//contourGeometry.verts = contour;
 		// interpolate contour points using catmullrom here
 		for (int i = 0; i < bindings.size(); i++) {
 			contourGeometry.verts.push_back(bindings[i].contourPoint);
