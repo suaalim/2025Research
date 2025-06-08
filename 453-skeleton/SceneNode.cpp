@@ -371,6 +371,8 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 	return bindings;
 }
 
+// to be used when not updating contour point position
+
 // interpolate the branch transformations and apply to contour points
 std::vector<glm::vec3> SceneNode::animateContour(std::vector<ContourBinding>& bindings) {
 	std::vector<glm::vec3> animatedPoints;
@@ -388,6 +390,15 @@ std::vector<glm::vec3> SceneNode::animateContour(std::vector<ContourBinding>& bi
 
 	return animatedPoints;
 }
+
+// inverse transform the deformed contour 
+void SceneNode::inverseTransform(std::vector<ContourBinding>& bindings) {
+	for (auto& binding : bindings) {
+		glm::mat4 transformInverseMat = binding.t * glm::inverse(binding.childNode->globalTransformation * binding.childNode->restPoseInverse) + (1 - binding.t) * glm::inverse(binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);
+		binding.contourPoint = glm::vec3(transformInverseMat * glm::vec4(binding.contourPoint, 1.0f));
+	}
+}
+// ------------------------------------------------
 
 // interpolate branches 
 void SceneNode::interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry) {
@@ -435,14 +446,6 @@ std::vector<glm::vec3> SceneNode::distanceBetweenContourPoints(std::vector<glm::
 	return newContourPoints;
 }
 
-// inverse transform the deformed contour 
-void SceneNode::inverseTransform(std::vector<ContourBinding>& bindings) {
-	for (auto& binding : bindings) {
-		glm::mat4 transformInverseMat = binding.t * glm::inverse(binding.childNode->globalTransformation * binding.childNode->restPoseInverse) + (1 - binding.t) * glm::inverse(binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse);
-		binding.contourPoint = glm::vec3(transformInverseMat * glm::vec4(binding.contourPoint, 1.0f));
-	}
-}
-
 // add a new point to the curve
 // when adding, get its neighbors and the branch that it belongs to
 // calculate the closest point using those branches
@@ -463,14 +466,6 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 		if (distance >= threshold) {
 			// add a point in between the two original points
 			glm::vec3 newPoint = glm::mix(bindings[i].contourPoint, bindings[i + 1].contourPoint, 0.5f);
-
-			//// catmullrom interpolation
-			//glm::vec3 p0 = bindings[i - 1].contourPoint;
-			//glm::vec3 p1 = bindings[i].contourPoint;
-			//glm::vec3 p2 = bindings[i + 1].contourPoint;
-			//glm::vec3 p3 = bindings[i + 2].contourPoint;
-			//float t = 0.5f; 
-			//glm::vec3 newPoint = glm::catmullRom(p0, p1, p2, p3, t);
 
 			glm::vec3 firstNeighborParent = bindings[i].parentNode->globalTransformation[3];
 			glm::vec3 firstNeighborChild = bindings[i].childNode->globalTransformation[3];
