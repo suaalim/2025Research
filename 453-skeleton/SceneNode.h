@@ -34,15 +34,13 @@ public:
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
 	void getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
-	void labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments, int& i);
-	std::vector<ContourBinding> bindContourToMultipleBranches(const std::vector<glm::vec3>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
+	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	std::vector<ContourBinding> bindContourToBranches(
 		const std::vector<glm::vec3>& contourPoints,
 		SceneNode* root,
 		std::vector<std::pair<SceneNode*, SceneNode*>>&
 	);
 	std::vector<glm::vec3> animateContour(std::vector<ContourBinding>& bindings);
-	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
 	static std::vector<glm::vec3> contourCatmullRom(std::vector<glm::vec3> root, int points);
@@ -51,9 +49,6 @@ public:
 	void inverseTransform(std::vector<ContourBinding>& bindings);
 	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);
 	void animationPerFrame(std::vector<ContourBinding>& bindings);
-	void multipleWeights(std::vector<ContourBinding>& bindings);
-	void animationPerFrameUsingMultipleWeights(std::vector<ContourBinding>& bindings, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
-	void bindToBranchingPoint(std::vector<ContourBinding>& bindings, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
 		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
 	
