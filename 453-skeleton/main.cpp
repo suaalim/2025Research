@@ -131,9 +131,9 @@ int main() {
 	//std::vector<float> angles = { 0.f };
 	//std::vector<float> angles = { 45.0f };
 	//std::vector<float> angles = { 45.0f, -45.0f };
-	std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
+	//std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
 	//std::vector<float> angles = { 45.0f, 45.0f/2, -45.0f/2, -45.0f };
-	//std::vector<float> angles = { 90.0f, 45.0f, 0.0f, -45.0f, -90.0f };
+	std::vector<float> angles = { 90.0f, 45.0f, 0.0f, -45.0f, -90.0f };
 
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
@@ -156,7 +156,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 4), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 7), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -194,7 +194,7 @@ int main() {
 		root->interpolateBranchTransforms(pairs, branchUpdates);
 
 		// add contour point if necessary and bind
-		//bindings = root->addContourPoints(bindings);
+		bindings = root->addContourPoints(bindings);
 		root->animationPerFrame(bindings);
 
 		mappingLines.verts.clear();
