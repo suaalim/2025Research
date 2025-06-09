@@ -460,7 +460,6 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 	std::vector<ContourBinding> newBindingSet;
 	// arbitrary threshold
 	float threshold = 0.2f;
-	//for (int i = 1; i < bindings.size() - 2; i++) {
 	for (int i = 0; i < bindings.size() - 1; i++) {
 		float distance = glm::length(bindings[i + 1].contourPoint - bindings[i].contourPoint);
 		if (distance >= threshold) {
@@ -484,7 +483,14 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 				t1 = 1.f;
 				glm::mat4 previousiInverseAnimationMat = glm::inverse(t1 * bindings[i].childNode->globalTransformation + (1 - t1) * bindings[i].parentNode->globalTransformation);
 				newBindingSet.push_back(bindings[i]);
-				newBindingSet.push_back({ bindings[i].parentNode, bindings[i].childNode, newPoint, t1, proj1, previousiInverseAnimationMat, bindings[i].weights, bindings[i].previousAnimateInverseMat });
+				std::vector<float> newWeights;
+				for (int j = 0; j < bindings[i].weights.size(); j++) {
+					//newWeights.push_back((bindings[i].weights[j] + bindings[i + 1].weights[j]) / 2.0f);
+					newWeights.push_back(0.2 * (((bindings[i].weights[j] + bindings[i + 1].weights[j]) / 2.0f) - bindings[i].weights[j]) + bindings[i].weights[j]);
+				}
+				// previousAnimateInverseMat does not need to be updated because t = 1, meaning we always take child->globalTransformation
+				// so it would be the same as the one it is inheriting from 
+				newBindingSet.push_back({ bindings[i].parentNode, bindings[i].childNode, newPoint, t1, proj1, previousiInverseAnimationMat, newWeights, bindings[i].previousAnimateInverseMat });
 			}
 			else {
 				float t2 = glm::dot(secondNeighborChild - secondNeighborParent, newPoint - secondNeighborParent) / glm::dot(secondNeighborChild - secondNeighborParent, secondNeighborChild - secondNeighborParent);
@@ -492,7 +498,12 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 				t2 = 1.f;
 				glm::mat4 previousiInverseAnimationMat = glm::inverse(t2 * bindings[i + 1].childNode->globalTransformation + (1 - t2) * bindings[i + 1].parentNode->globalTransformation);
 				newBindingSet.push_back(bindings[i]);
-				newBindingSet.push_back({ bindings[i + 1].parentNode, bindings[i + 1].childNode, newPoint, t2, proj2, previousiInverseAnimationMat, bindings[i + 1].weights, bindings[i + 1].previousAnimateInverseMat });
+				std::vector<float> newWeights;
+				for (int j = 0; j < bindings[i].weights.size(); j++) {
+					//newWeights.push_back((bindings[i].weights[j] + bindings[i + 1].weights[j]) / 2.0f);
+					newWeights.push_back(0.2 * (((bindings[i].weights[j] + bindings[i + 1].weights[j]) / 2.0f) - bindings[i].weights[j]) + bindings[i].weights[j]);
+				}
+				newBindingSet.push_back({ bindings[i + 1].parentNode, bindings[i + 1].childNode, newPoint, t2, proj2, previousiInverseAnimationMat, newWeights, bindings[i + 1].previousAnimateInverseMat });
 			}
 		}
 		else {
