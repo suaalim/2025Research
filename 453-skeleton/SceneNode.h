@@ -32,22 +32,12 @@ public:
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
 	void getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
-	void labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments, int& i);
-	std::vector<ContourBinding> bindContourToMultipleBranches(const std::vector<glm::vec3>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
-	std::vector<ContourBinding> bindContourToBranches(
-		const std::vector<glm::vec3>& contourPoints,
-		SceneNode* root,
-		std::vector<std::pair<SceneNode*, SceneNode*>>&
-	);
 	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
-	std::vector<ContourBinding> branchingPointMap(std::vector<ContourBinding>& contourPoints);
-	std::vector<ContourBinding> interpolateBetweenContour(std::vector<ContourBinding>& contourPoints);
-	static std::vector<glm::vec3> bSplineCurve(int iterations, SceneNode* root);
-	static std::vector<glm::vec3> contourCatmullRom(std::vector<glm::vec3> root, int points);
 	std::vector<std::vector<glm::vec3>> contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment);
 	std::vector<glm::vec3> midPoints(std::vector<glm::vec3>& contourPoints);
 	std::vector<ContourBinding> bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
+	SceneNode* findCommonAncestor(ContourBinding& a, ContourBinding& b);
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
 	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
 	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);

@@ -131,13 +131,13 @@ int main() {
 	//std::vector<float> angles = { 0.f };
 	//std::vector<float> angles = { 45.0f };
 	//std::vector<float> angles = { 45.0f, -45.0f };
-	//std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
+	std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
 	//std::vector<float> angles = { 45.0f, 45.0f/2, -45.0f/2, -45.0f };
-	std::vector<float> angles = { 90.0f, 45.0f, 0.0f, -45.0f, -90.0f };
+	//std::vector<float> angles = { 80.0f, 45.0f, 0.0f, -45.0f, -80.0f };
 
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	SceneNode* root = SceneNode::createBranch(0, 2, 45.0f, 1.0f, false, angles);
+	SceneNode* root = SceneNode::createBranch(0, 3, 45.0f, 1.0f, false, angles);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
@@ -145,18 +145,15 @@ int main() {
 	contour = root->generateInitialContourControlPoints(root);
 	contour = root->midPoints(contour);
 	std::vector<std::vector<glm::vec3>> groupedContour = root->contourCatmullRomGrouped(contour, 8);
-	//contour = SceneNode::contourCatmullRom(contour,5);
 	// branch-contour mapping
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
 	root->getBranches(root, pairs);
 	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);
-	//std::vector<ContourBinding> bindings = root->branchingPointMap(b);
-	//std::vector<ContourBinding> bindings = root->interpolateBetweenContour(b2);
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 7), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 3), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);

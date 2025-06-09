@@ -21,6 +21,7 @@
 #include <cmath>
 #include <tuple>
 #include <vector>
+#include <unordered_set>
 
 // just a helper function to print the matrices for debugging purposes
 void printMat4(const glm::mat4& mat) {
@@ -316,12 +317,20 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 					// instead of taking t directly, interpolate along the branch
 					if (i % 2 == 1) t = 1 - (j / ((float)contourPoints[i].size() - 1));
 					else t = (j / ((float)contourPoints[i].size() - 1));
-					bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation)};
 
+					//if (i >= 1 && i <= contourPoints.size() - 2 && (t == 0 || t == 1) && parent->globalTransformation != glm::mat4(1.0f)) bestBinding = { parent->parent, parent, contourPoints[i][j], t, t * parent->globalTransformation[3] + (1 - t) * parent->parent->globalTransformation[3], glm::inverse(t * parent->globalTransformation + (1 - t) * parent->parent->globalTransformation)};
+					//else bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation)};
+				
+					bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation) };
 				}
 			}
 			bindings.push_back(bestBinding);
 		}
+	}
+	// take two consecutive points, go deep until the parents are the same -> bind to this parent
+	for (int i = 0; i < bindings.size() - 1; i++) {
+		SceneNode* commonAncestor = findCommonAncestor(bindings[i], bindings[i + 1]);
+		bindings[i] = { commonAncestor->parent, commonAncestor, bindings[i].contourPoint, bindings[i].t, bindings[i].t * commonAncestor->globalTransformation[3] + (1 - bindings[i].t) * commonAncestor->parent->globalTransformation[3], glm::inverse(bindings[i].t * commonAncestor->globalTransformation + (1 - bindings[i].t) * commonAncestor->parent->globalTransformation)};
 	}
 
 	// first and last contour points are mapped to the root
@@ -340,35 +349,24 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 	return bindings;
 }
 
-// contour using catmull rom spline 
-std::vector<glm::vec3> SceneNode::contourCatmullRom(std::vector<glm::vec3> controlPoints, int points) {
-	// add first and last points
-	std::vector<glm::vec3> paddedPoints;
-	glm::vec3 first = controlPoints[0] + (controlPoints[0] - controlPoints[1]);
-	glm::vec3 last = controlPoints.back() + (controlPoints.back() - controlPoints[controlPoints.size() - 1]);
+SceneNode* SceneNode::findCommonAncestor(ContourBinding& a, ContourBinding& b) {
+	std::unordered_set<SceneNode*> ancestors;
 
-	paddedPoints.push_back(first);
-	paddedPoints.insert(paddedPoints.end(), controlPoints.begin(), controlPoints.end());
-	paddedPoints.push_back(last);
-
-	// generate contour points
-	std::vector<glm::vec3> curvePoints;
-	// minus 3 because we have i + 3
-	for (size_t i = 0; i < paddedPoints.size() - 3; i++) {
-		for (int j = 0; j <= points; j++) {
-			float t = float(j) / points;
-			glm::vec3 pt = glm::catmullRom(
-				paddedPoints[i],
-				paddedPoints[i + 1],
-				paddedPoints[i + 2],
-				paddedPoints[i + 3],
-				t
-			);
-			curvePoints.push_back(pt);
-		}
+	SceneNode* currentA = a.parentNode;
+	while (currentA) {
+		ancestors.insert(currentA);
+		currentA = currentA->parent;
 	}
 
-	return curvePoints;
+	SceneNode* currentB = b.parentNode;
+	while (currentB) {
+		if (ancestors.count(currentB)) {
+			return currentB; // First common ancestor
+		}
+		currentB = currentB->parent;
+	}
+
+	return nullptr; // No common ancestor found (disconnected trees)
 }
 
 // finding the closest point from R (on contour) to the branch segment PQ 
@@ -387,99 +385,6 @@ void SceneNode::getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, S
 		segments.push_back({ node, child });
 		getBranches(child, segments);
 	}
-}
-
-std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<glm::vec3>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments) {
-	std::vector<ContourBinding> bindings;
-	glm::vec3 rootPos = root->globalTransformation[3];
-
-	for (const glm::vec3& contourPoint : contourPoints) {
-		float minDist = FLT_MAX;
-		ContourBinding bestBinding;
-
-		for (auto& [parent, child] : segments) {
-			glm::vec3 P = parent->globalTransformation[3];
-			glm::vec3 Q = child->globalTransformation[3];
-
-			glm::vec3 closest = SceneNode::intersectionPoint(P, Q, contourPoint);
-			float t = glm::dot(Q - P, contourPoint - P) / glm::dot(Q - P, Q - P);
-			t = glm::clamp(t, 0.0f, 1.0f);
-			float dist = glm::length(closest - contourPoint);
-
-			if (dist < minDist) {
-				minDist = dist;
-				bestBinding = { parent, child, contourPoint, t, closest, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation) };
-
-			}
-		}
-
-		bindings.push_back(bestBinding);
-	}
-
-	// first and last contour points are mapped to the root
-	bindings[0].parentNode = std::get<0>(segments[1]);
-	bindings[0].childNode = std::get<1>(segments[1]);
-	bindings[0].t = 0.f;
-	bindings[0].closestPoint = (bindings[0].t * bindings[0].childNode->globalTransformation[3] + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation[3]);
-	bindings[0].previousAnimateInverse = glm::inverse(bindings[0].t * bindings[0].childNode->globalTransformation + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation);
-
-	bindings[bindings.size() - 1].parentNode = std::get<0>(segments[1]);
-	bindings[bindings.size() - 1].childNode = std::get<1>(segments[1]);
-	bindings[bindings.size() - 1].t = 0.f;
-	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
-	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
-
-	return bindings;
-}
-
-// get midpoint of the contourPoints and map to branching points
-std::vector<ContourBinding> SceneNode::branchingPointMap(std::vector<ContourBinding>& contourPoints) {
-	std::vector<ContourBinding> copyOfContour;
-	copyOfContour.push_back(contourPoints[0]);
-	for (int i = 1; i < contourPoints.size() - 2; i++) {
-		// midpoint is binded to the parent branch of the original points
-		copyOfContour.push_back(contourPoints[i]);
-		ContourBinding newContour;
-		newContour.parentNode = contourPoints[i].parentNode->parent;
-		newContour.childNode = contourPoints[i].parentNode;
-		newContour.contourPoint = (contourPoints[i].contourPoint + contourPoints[i + 1].contourPoint) / 2.f;
-		newContour.t = 1.f;
-		newContour.closestPoint = (newContour.t * newContour.childNode->globalTransformation[3] + (1 - newContour.t) * newContour.parentNode->globalTransformation[3]);
-		newContour.previousAnimateInverse = glm::inverse((newContour.t * newContour.childNode->globalTransformation + (1 - newContour.t) * newContour.parentNode->globalTransformation));
-		copyOfContour.push_back(newContour);
-	}
-	copyOfContour.push_back(contourPoints[contourPoints.size() - 2]);
-	copyOfContour.push_back(contourPoints[contourPoints.size() - 1]);
-	return copyOfContour;
-}
-
-// bind the interpolated points to the branch using blending
-std::vector<ContourBinding> SceneNode::interpolateBetweenContour(std::vector<ContourBinding>& contourPoints) {
-	std::vector<ContourBinding> copyOfContour;
-	copyOfContour.push_back(contourPoints[0]);
-	for (int i = 0; i < contourPoints.size() - 1; i++) {
-		copyOfContour.push_back(contourPoints[i]);
-		std::vector<glm::vec3> points = contourCatmullRom({ contourPoints[i].contourPoint, contourPoints[i + 1].contourPoint }, 6);
-		for (int j = 1; j < points.size() - 1; j++) {
-			ContourBinding newContour;
-			if (i % 2 == 1) {
-				newContour.parentNode = contourPoints[i].parentNode;
-				newContour.childNode = contourPoints[i].childNode;
-				newContour.t = 1 - (j / (float)points.size());
-			}
-			else {
-				newContour.parentNode = contourPoints[i + 1].parentNode;
-				newContour.childNode = contourPoints[i + 1].childNode;
-				newContour.t = j / (float)points.size();
-			}
-			newContour.contourPoint = points[j];
-			newContour.closestPoint = (newContour.t * newContour.childNode->globalTransformation[3] + (1 - newContour.t) * newContour.parentNode->globalTransformation[3]);
-			newContour.previousAnimateInverse = glm::inverse((newContour.t * newContour.childNode->globalTransformation + (1 - newContour.t) * newContour.parentNode->globalTransformation));
-			copyOfContour.push_back(newContour);
-		}
-	}
-	copyOfContour.push_back(contourPoints[contourPoints.size() - 1]);
-	return copyOfContour;
 }
 
 // interpolate branches 
@@ -581,15 +486,6 @@ void SceneNode::animationPerFrame(std::vector<ContourBinding>& bindings) {
 		glm::mat4 animatedPosMat = binding.t * binding.childNode->globalTransformation + (1 - binding.t) * (binding.parentNode->globalTransformation);
 		binding.contourPoint = animatedPosMat * binding.previousAnimateInverse * glm::vec4(binding.contourPoint, 1.0f);
 		binding.previousAnimateInverse = glm::inverse(binding.t * binding.childNode->globalTransformation + (1 - binding.t) * binding.parentNode->globalTransformation);
-	}
-}
-
-// label the branches by indices
-void SceneNode::labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments, int& i) {
-	for (SceneNode* child : node->children) {
-		segments.push_back({ node, child, i });
-		i++;
-		labelBranches(child, segments, i);
 	}
 }
 
