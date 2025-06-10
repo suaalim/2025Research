@@ -44,55 +44,6 @@ void SceneNode::addChild(SceneNode* child) {
 	children.push_back(child);
 }
 
-// generating branches recursively using SceneNodes
-// create scene graph (parent-child relationship)
-// creating all the local transformations
-//SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float length, bool alternate, std::vector<float> selectedAngles) {
-//	// base case
-//	if (depth > maxDepth) return nullptr;
-//
-//	// recursive case
-//	SceneNode* branch = new SceneNode();
-//	branch->localTranslation = glm::mat4(1.0f);
-//	branch->localRotation = glm::quat(1.0f, 0.f, 0.f, 0.f);
-//	branch->localScaling = glm::mat4(1.0f);
-//
-//	float childLength = length * 0.5f;
-//
-//	//// selecting angles based on alternating structure or symmetric structure
-//	//std::vector<float> selectedAngles;
-//	//if (!alternate) {
-//	//	selectedAngles = angles;
-//	//}
-//	//else {
-//	//	selectedAngles = (depth % 2 == 0)
-//	//		? std::vector<float>{angles[0], angles[1]}
-//	//	: std::vector<float>{ angles[1], angles[2] };
-//	//}
-//
-//	// children
-//	std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
-//	for (float a : selectedAngles) {
-//		SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, angles);
-//		if (!child) continue;
-//
-//		// uniform scaling
-//		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
-//		// non-uniform scaling
-//		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
-//		glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
-//		glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-//
-//		child->localTranslation = translation;
-//		child->localRotation = rotQuat;
-//		child->localScaling = scale;
-//		//child->animationDirection = (a > 0) ? 1.0f : -1.0f; // left and right move opposite
-//		branch->addChild(child);
-//	}
-//
-//	return branch;
-//}
-
 SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float length, bool alternate, std::vector<float> selectedAngles) {
 	// base case
 	if (depth > maxDepth) return nullptr;
@@ -343,6 +294,7 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 	for (int i = contourPoints[0].size(); i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
 		std::tuple<SceneNode*, SceneNode*> commonAncestor = findChildrenOfFirstCommonAncestorFromRoot(root, bindings[i], bindings[i + 1]);
 		if (abs(bindings[i].childBranchIndex - bindings[i + 1].childBranchIndex) > 1) {
+			// we only want to bind to ancestor if the two points belong to different branches
 			bindings[i].t = 0.f;
 			bindings[i] = { std::get<0>(commonAncestor)->parent, std::get<0>(commonAncestor), bindings[i].contourPoint, bindings[i].t, bindings[i].t * std::get<0>(commonAncestor)->globalTransformation[3] + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation[3], glm::inverse(bindings[i].t * std::get<0>(commonAncestor)->globalTransformation + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation) };
 		}
