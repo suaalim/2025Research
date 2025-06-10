@@ -69,17 +69,56 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 	else {
 		// from depth 1 onward, apply the selected angles
 		for (float a : selectedAngles) {
-			SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, selectedAngles);
-			if (!child) continue;
+			if (a > 0.f) {
+				SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, { 45.f, 0.f });
+				if (!child) continue;
 
-			glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
-			glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
-			glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+				glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
+				glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-			child->localTranslation = translation;
-			child->localRotation = rotQuat;
-			child->localScaling = scale;
-			branch->addChild(child);
+				child->localTranslation = translation;
+				child->localRotation = rotQuat;
+				child->localScaling = scale;
+				branch->addChild(child);
+			}
+			else if (a < 0.f) {
+				SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, { 0.f, -45.f});
+				if (!child) continue;
+
+				glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+				glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
+				glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				child->localTranslation = translation;
+				child->localRotation = rotQuat;
+				child->localScaling = scale;
+				branch->addChild(child);
+			}
+			else {
+				SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, { 0.f });
+				if (!child) continue;
+
+				glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(2 * childLength));
+				glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
+				glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				child->localTranslation = translation;
+				child->localRotation = rotQuat;
+				child->localScaling = scale;
+				branch->addChild(child);
+			}
+			//SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, selectedAngles);
+			//if (!child) continue;
+
+			//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+			//glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(selectedAngles[i]), glm::vec3(0, 0, 1)));
+			//glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+			//child->localTranslation = translation;
+			//child->localRotation = rotQuat;
+			//child->localScaling = scale;
+			//branch->addChild(child);
 		}
 	}
 
