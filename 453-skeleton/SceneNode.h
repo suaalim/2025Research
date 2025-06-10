@@ -19,6 +19,7 @@ struct ContourBinding {
 	float t;
 	glm::vec3 closestPoint;
 	glm::mat4 previousAnimateInverse;
+	int childBranchIndex;
 };
 
 // SceneNode for Scene Graph
@@ -32,12 +33,17 @@ public:
 	void deleteSceneGraph(SceneNode* node);
 	static glm::vec3 intersectionPoint(glm::vec3 P, glm::vec3 Q, glm::vec3 R);
 	void getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
+	void labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments, int& i);
 	static void getLeafNodes(SceneNode* node, std::vector<SceneNode*>& leaves);
 	static std::vector<glm::vec3> generateInitialContourControlPoints(SceneNode* root);
 	std::vector<std::vector<glm::vec3>> contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment);
 	std::vector<glm::vec3> midPoints(std::vector<glm::vec3>& contourPoints);
-	std::vector<ContourBinding> bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
-	SceneNode* findCommonAncestor(ContourBinding& a, ContourBinding& b);
+	std::vector<ContourBinding> bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
+	std::tuple<SceneNode*, SceneNode*> findChildrenOfFirstCommonAncestorFromRoot(
+		SceneNode* root,
+		const ContourBinding& a,
+		const ContourBinding& b
+	);
 	void interpolateBranchTransforms(std::vector<std::pair<SceneNode*, SceneNode*>>& pair, std::vector<CPU_Geometry>& outGeometry);
 	std::vector<glm::vec3> distanceBetweenContourPoints(std::vector<glm::vec3> contourPoints);
 	std::vector<ContourBinding> addContourPoints(std::vector<ContourBinding>& bindings);

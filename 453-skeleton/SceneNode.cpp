@@ -292,7 +292,7 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 // contour points are grouped by segments
 // now we need to bind
 // get each group, map the first and last points to the tip, the middle point to the tip, and interpolate the rest
-std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments) {
+std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments) {
 	std::vector<ContourBinding> bindings;
 	glm::vec3 rootPos = root->globalTransformation[3];
 
@@ -304,7 +304,7 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 			ContourBinding bestBinding;
 
 			// different scenarios depending on the index of i
-			for (auto& [parent, child] : segments) {
+			for (auto& [parent, child, index] : segments) {
 				glm::vec3 P = parent->globalTransformation[3];
 				glm::vec3 Q = child->globalTransformation[3];
 
@@ -318,19 +318,11 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 					if (i % 2 == 1) t = 1 - (j / ((float)contourPoints[i].size() - 1));
 					else t = (j / ((float)contourPoints[i].size() - 1));
 
-					//if (i >= 1 && i <= contourPoints.size() - 2 && (t == 0 || t == 1) && parent->globalTransformation != glm::mat4(1.0f)) bestBinding = { parent->parent, parent, contourPoints[i][j], t, t * parent->globalTransformation[3] + (1 - t) * parent->parent->globalTransformation[3], glm::inverse(t * parent->globalTransformation + (1 - t) * parent->parent->globalTransformation)};
-					//else bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation)};
-				
-					bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation) };
+					bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation), index };
 				}
 			}
 			bindings.push_back(bestBinding);
 		}
-	}
-	// take two consecutive points, go deep until the parents are the same -> bind to this parent
-	for (int i = 0; i < bindings.size() - 1; i++) {
-		SceneNode* commonAncestor = findCommonAncestor(bindings[i], bindings[i + 1]);
-		bindings[i] = { commonAncestor->parent, commonAncestor, bindings[i].contourPoint, bindings[i].t, bindings[i].t * commonAncestor->globalTransformation[3] + (1 - bindings[i].t) * commonAncestor->parent->globalTransformation[3], glm::inverse(bindings[i].t * commonAncestor->globalTransformation + (1 - bindings[i].t) * commonAncestor->parent->globalTransformation)};
 	}
 
 	// first and last contour points are mapped to the root
@@ -346,27 +338,52 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
 	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
 
+	// take two consecutive points, go deep until the parents are the same -> bind to this parent
+	// exclude the leftmost and rightmost groups of contour points
+	for (int i = contourPoints[0].size(); i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
+		std::tuple<SceneNode*, SceneNode*> commonAncestor = findChildrenOfFirstCommonAncestorFromRoot(root, bindings[i], bindings[i + 1]);
+		if (abs(bindings[i].childBranchIndex - bindings[i + 1].childBranchIndex) > 1) {
+			bindings[i].t = 0.f;
+			bindings[i] = { std::get<0>(commonAncestor)->parent, std::get<0>(commonAncestor), bindings[i].contourPoint, bindings[i].t, bindings[i].t * std::get<0>(commonAncestor)->globalTransformation[3] + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation[3], glm::inverse(bindings[i].t * std::get<0>(commonAncestor)->globalTransformation + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation) };
+		}
+	}
+
 	return bindings;
 }
 
-SceneNode* SceneNode::findCommonAncestor(ContourBinding& a, ContourBinding& b) {
-	std::unordered_set<SceneNode*> ancestors;
-
-	SceneNode* currentA = a.parentNode;
-	while (currentA) {
-		ancestors.insert(currentA);
-		currentA = currentA->parent;
+// find the children of common ancestor
+std::tuple<SceneNode*, SceneNode*> SceneNode::findChildrenOfFirstCommonAncestorFromRoot(
+	SceneNode* root,
+	const ContourBinding& a,
+	const ContourBinding& b) {
+	if (a.childNode == b.childNode) {
+		return { a.childNode, b.childNode } ;
 	}
 
-	SceneNode* currentB = b.parentNode;
-	while (currentB) {
-		if (ancestors.count(currentB)) {
-			return currentB; // First common ancestor
+	auto buildPathToRoot = [](SceneNode* node) {
+		std::vector<SceneNode*> path;
+		while (node) {
+			path.push_back(node);
+			node = node->parent;
 		}
-		currentB = currentB->parent;
-	}
+		return path;
+		};
 
-	return nullptr; // No common ancestor found (disconnected trees)
+	std::vector<SceneNode*> pathA = buildPathToRoot(a.childNode);
+	std::vector<SceneNode*> pathB = buildPathToRoot(b.childNode);
+
+	size_t minSize = std::min(pathA.size(), pathB.size());
+	size_t index = 0;
+
+	for (size_t i = 0; i < minSize; i++) {
+		if (pathA[i]->globalTransformation[3] != pathB[i]->globalTransformation[3]) {
+			index += 1;
+		}
+		else {
+			break;
+		}
+	}
+	return { pathA[index - 1], pathB[index - 1] };
 }
 
 // finding the closest point from R (on contour) to the branch segment PQ 
@@ -384,6 +401,15 @@ void SceneNode::getBranches(SceneNode* node, std::vector<std::pair<SceneNode*, S
 	for (SceneNode* child : node->children) {
 		segments.push_back({ node, child });
 		getBranches(child, segments);
+	}
+}
+
+// label branches hierarchically
+void SceneNode::labelBranches(SceneNode* node, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments, int& i) {
+	for (SceneNode* child : node->children) {
+		segments.push_back({ node, child, i });
+		i++;
+		labelBranches(child, segments, i);
 	}
 }
 

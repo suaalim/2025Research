@@ -146,8 +146,9 @@ int main() {
 	contour = root->midPoints(contour);
 	std::vector<std::vector<glm::vec3>> groupedContour = root->contourCatmullRomGrouped(contour, 8);
 	// branch-contour mapping
-	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
-	root->getBranches(root, pairs);
+	std::vector<std::tuple<SceneNode*, SceneNode*, int>> pairs;
+	int index = 0;
+	root->labelBranches(root, pairs, index);
 	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
@@ -188,7 +189,11 @@ int main() {
 
 		// update branch position
 		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
-		root->interpolateBranchTransforms(pairs, branchUpdates);
+		std::vector<std::pair<SceneNode*, SceneNode*>> p;
+		for (const auto& tup : pairs) {
+			p.emplace_back(std::get<0>(tup), std::get<1>(tup));
+		}
+		root->interpolateBranchTransforms(p, branchUpdates);
 
 		// add contour point if necessary and bind
 		bindings = root->addContourPoints(bindings);
