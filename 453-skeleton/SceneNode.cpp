@@ -117,17 +117,43 @@ SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float l
 	else {
 		// from depth 1 onward, apply the selected angles
 		for (float a : selectedAngles) {
-			SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, selectedAngles);
-			if (!child) continue;
+			if (a != 0.f) {
+				SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength / 2.f, alternate, { 45.f, -45.f });
+				if (!child) continue;
 
-			glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
-			glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
-			glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+				glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+				glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
+				glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
 
-			child->localTranslation = translation;
-			child->localRotation = rotQuat;
-			child->localScaling = scale;
-			branch->addChild(child);
+				child->localTranslation = translation;
+				child->localRotation = rotQuat;
+				child->localScaling = scale;
+				branch->addChild(child);
+			}
+			else {
+				SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, { 0.f } );
+				if (!child) continue;
+
+				glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+				glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
+				glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+				child->localTranslation = translation;
+				child->localRotation = rotQuat;
+				child->localScaling = scale;
+				branch->addChild(child);
+			}
+			//SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate, selectedAngles);
+			//if (!child) continue;
+
+			//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
+			//glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(selectedAngles[i]), glm::vec3(0, 0, 1)));
+			//glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+
+			//child->localTranslation = translation;
+			//child->localRotation = rotQuat;
+			//child->localScaling = scale;
+			//branch->addChild(child);
 		}
 	}
 
@@ -476,10 +502,8 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 			glm::vec3 proj2 = intersectionPoint(secondNeighborParent, secondNeighborChild, newPoint);
 			float dist2 = glm::length(newPoint - proj2);
 
-
 			if (dist1 < dist2) {
-				float t1 = glm::dot(firstNeighborChild - firstNeighborParent, newPoint - firstNeighborParent) / glm::dot(firstNeighborChild - firstNeighborParent, firstNeighborChild - firstNeighborParent);
-				t1 = 1.f;
+				float t1 = 1.f;
 				glm::mat4 previousiInverseAnimationMat = glm::inverse(t1 * bindings[i].childNode->globalTransformation + (1 - t1) * bindings[i].parentNode->globalTransformation);
 				newBindingSet.push_back(bindings[i]);
 				std::vector<float> newWeights;
@@ -492,8 +516,7 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 				newBindingSet.push_back({ bindings[i].parentNode, bindings[i].childNode, newPoint, t1, firstNeighborChild, previousiInverseAnimationMat, newWeights, bindings[i].previousAnimateInverseMat });
 			}
 			else {
-				float t2 = glm::dot(secondNeighborChild - secondNeighborParent, newPoint - secondNeighborParent) / glm::dot(secondNeighborChild - secondNeighborParent, secondNeighborChild - secondNeighborParent);
-				t2 = 1.f;
+				float t2 = 1.f;
 				glm::mat4 previousiInverseAnimationMat = glm::inverse(t2 * bindings[i + 1].childNode->globalTransformation + (1 - t2) * bindings[i + 1].parentNode->globalTransformation);
 				newBindingSet.push_back(bindings[i]);
 				std::vector<float> newWeights;
