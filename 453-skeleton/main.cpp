@@ -10,6 +10,7 @@
 #include "Geometry.h"
 #include "SceneNode.h"
 #include "ShaderLoader.h"
+#include <tuple>
 
 // DEBUGGING PURPOSES
 void printVectorOfPairs(const std::vector<std::pair<glm::vec3, glm::vec3>>& vec) {
@@ -111,8 +112,6 @@ void draw(GLenum primitive, GLsizei vertexCount, GLsizei indexCount) {
 	glDrawElements(primitive, indexCount, GL_UNSIGNED_INT, 0);
 }
 
-#include <iomanip>
-
 int main() {
 	glfwInit();
 	GLFWwindow* window = glfwCreateWindow(800, 800, "Branching Structure", NULL, NULL);
@@ -127,18 +126,15 @@ int main() {
 	// create and bind VAO and VBO
 	setupBuffers();
 
-	// branch initialization
-	//std::vector<float> angles = { 0.f };
-	//std::vector<float> angles = { 45.0f };
-	//std::vector<float> angles = { 45.0f, -45.0f };
-	std::vector<float> angles = { 45.0f, 0.0f, -45.0f };
-	//std::vector<float> angles = { 45.0f, 45.0f/2, -45.0f/2, -45.0f };
-	//std::vector<float> angles = { 80.0f, 45.0f, 0.0f, -45.0f, -80.0f };
-
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	SceneNode* root = SceneNode::createBranch(0, 3, 45.0f, 1.0f, false, angles);
+
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices3.txt");
+	std::vector<std::vector<int>> parentChildPairs = SceneNode::buildChildrenList(edgeTransformations);
+	SceneNode* root = SceneNode::createBranchingStructure(0, parentChildPairs, edgeTransformations);
+	
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
@@ -149,7 +145,7 @@ int main() {
 	std::vector<std::tuple<SceneNode*, SceneNode*, int>> pairs;
 	int index = 0;
 	root->labelBranches(root, pairs, index);
-	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);
+	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);  
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
@@ -227,16 +223,16 @@ int main() {
 		// Branch
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);
-		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
+		glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
 		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
 
-		// Interpolated branch
-		for (int i = 0; i < branchUpdates.size(); i++) {
-			updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
-			glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
-			glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
-			//glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
-		}
+		//// Interpolated branch
+		//for (int i = 0; i < branchUpdates.size(); i++) {
+		//	updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
+		//	glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
+		//	glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
+		//	//glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
+		//}
 
 		// Contour
 		updateBuffers(contourGeometry.verts, contourGeometry.cols, {});

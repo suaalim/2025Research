@@ -8,9 +8,16 @@
 #include "Window.h"
 #include <glm/glm.hpp>
 #include <glm/gtc/quaternion.hpp>
+#include <unordered_map>
 
 // define the class before the struct since it uses the class
 class SceneNode;
+
+struct TransformData {
+	glm::mat4 rotation;
+	glm::mat4 scaling;
+	glm::mat4 translation;
+};
 
 struct ContourBinding {
 	SceneNode* parentNode;
@@ -27,7 +34,11 @@ class SceneNode {
 public:
 	SceneNode();
 	void addChild(SceneNode* child);
-	static SceneNode* createBranch(int depth, int maxDepth, float angle, float length, bool alternate, std::vector<float> selectedAngles);
+	static SceneNode* createBranchingStructure(int depth, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> transformations);
+	static std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> extractEdgeTransforms(const std::string& filename);
+	static std::vector<std::vector<int>> buildChildrenList(
+		const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>>& edges
+	);
 	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
 	void deleteSceneGraph(SceneNode* node);
@@ -62,6 +73,9 @@ public:
 
 	SceneNode* parent;
 	std::vector<SceneNode*> children;
+
+	std::unordered_map<int, SceneNode*> nodes;
+	std::unordered_map<int, std::vector<std::pair<int, TransformData>>> edges;
 
 private:
 	// T trasformation (rest pose)
