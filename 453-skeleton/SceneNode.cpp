@@ -384,6 +384,20 @@ std::vector<ContourBinding> SceneNode::bindContourToBranches(const std::vector<g
 		bindings.push_back(bestBinding);
 	}
 
+	// first and last contour points are mapped to the root
+	// now there is no invisible root branch
+	bindings[0].parentNode = std::get<0>(segments[0]);
+	bindings[0].childNode = std::get<1>(segments[0]);
+	bindings[0].t = 0.f;
+	bindings[0].closestPoint = (bindings[0].t * bindings[0].childNode->globalTransformation[3] + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation[3]);
+	bindings[0].previousAnimateInverse = glm::inverse(bindings[0].t * bindings[0].childNode->globalTransformation + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation);
+
+	bindings[bindings.size() - 1].parentNode = std::get<0>(segments[0]);
+	bindings[bindings.size() - 1].childNode = std::get<1>(segments[0]);
+	bindings[bindings.size() - 1].t = 0.f;
+	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
+	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
+
 	return bindings;
 }
 
