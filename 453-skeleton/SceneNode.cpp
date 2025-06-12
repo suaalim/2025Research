@@ -357,8 +357,7 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 
 	// take two consecutive points, go deep until the parents are the same -> bind to this parent
 	// exclude the leftmost and rightmost groups of contour points
-	//for (int i = contourPoints[0].size(); i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
-	for (int i = 0; i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
+	for (int i = contourPoints[0].size(); i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
 		if (abs(bindings[i].childBranchIndex - bindings[i + 1].childBranchIndex) > 1) {
 			std::tuple<SceneNode*, SceneNode*> commonAncestor = findChildrenOfFirstCommonAncestorFromRoot(root, bindings[i], bindings[i + 1]);
 			// we only want to bind to ancestor if the two points belong to different branches

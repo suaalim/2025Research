@@ -150,7 +150,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 8), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -158,6 +158,7 @@ int main() {
 	float lastTime = glfwGetTime();
 
 	while (!glfwWindowShouldClose(window)) {
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		// animation
 		float currentTime = glfwGetTime();
@@ -204,8 +205,8 @@ int main() {
 			int startIdx = mappingLines.verts.size();
 			mappingLines.verts.push_back(binding.contourPoint);
 			mappingLines.verts.push_back(binding.closestPoint);
-			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
-			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
+			mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
+			mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
 			mappingLines.indices.push_back(startIdx);     // from contour
 			mappingLines.indices.push_back(startIdx + 1); // to closest branch point
 			++i;
