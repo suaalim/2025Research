@@ -21,6 +21,9 @@
 #include <cmath>
 #include <tuple>
 #include <vector>
+#include <fstream>
+#include <sstream>
+#include <regex>
 
 // just a helper function to print the matrices for debugging purposes
 void printMat4(const glm::mat4& mat) {
@@ -43,60 +46,109 @@ void SceneNode::addChild(SceneNode* child) {
 	children.push_back(child);
 }
 
-// generating branches recursively using SceneNodes
-// create scene graph (parent-child relationship)
-// creating all the local transformations
-SceneNode* SceneNode::createBranch(int depth, int maxDepth, float angle, float length, bool alternate) {
-	// base case
-	if (depth > maxDepth) return nullptr;
-
-	// recursive case
-	SceneNode* branch = new SceneNode();
-	branch->localTranslation = glm::mat4(1.0f);
-	branch->localRotation = glm::quat(1.0f, 0.f, 0.f, 0.f);
-	branch->localScaling = glm::mat4(1.0f);
-
-	float childLength = length * 0.5f;
-
-	// CONSIDER ADDING A STEM BRANCH
-	//std::vector<float> angles = { 0.f };
-	//std::vector<float> angles = { angle };
-	//std::vector<float> angles = { angle, 0.0f };
-	std::vector<float> angles = { angle, 0.0f, -angle };
-	//std::vector<float> angles = { angle, angle/2, -angle/2, -angle };
-	//std::vector<float> angles = { 90.0f, angle, 0.0f, -angle, -90.0f };
-
-	// selecting angles based on alternating structure or symmetric structure
-	std::vector<float> selectedAngles;
-	if (!alternate) {
-		selectedAngles = angles;
+glm::mat4 parseMatrix(std::ifstream& in) {
+	glm::mat4 mat(1.0f);
+	for (int i = 0; i < 4; i++) {
+		std::string line;
+		std::getline(in, line);
+		std::stringstream ss(line);
+		for (int j = 0; j < 4; j++) {
+			ss >> mat[j][i]; // column-major order
+		}
 	}
-	else {
-		selectedAngles = (depth % 2 == 0)
-			? std::vector<float>{angles[0], angles[1]}
-		: std::vector<float>{ angles[1], angles[2] };
+	return mat;
+}
+
+// extract the local matrices per edge
+std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> SceneNode::extractEdgeTransforms(const std::string& filename) {
+	std::ifstream in(filename);
+	if (!in.is_open()) {
+		std::cerr << "Failed to open file\n";
+		return {};
 	}
 
-	// children
-	for (float a : selectedAngles) {
-		SceneNode* child = createBranch(depth + 1, maxDepth, angle, childLength, alternate);
-		if (!child) continue;
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> edges;
+	std::string line;
+	std::regex edgeRegex(R"#(Edge\s+(\d+)\s+->\s+(\d+))#");
+	std::smatch match;
 
-		// uniform scaling
-		glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(childLength));
-		// non-uniform scaling
-		//glm::mat4 scale = glm::scale(glm::mat4(1.0f), glm::vec3(1.0f, childLength, 1.0f));
-		glm::quat rotQuat = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(a), glm::vec3(0, 0, 1)));
-		glm::mat4 translation = glm::translate(glm::mat4(1.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	while (std::getline(in, line)) {
+		if (std::regex_search(line, match, edgeRegex)) {
+			int parent = std::stoi(match[1]);
+			int child = std::stoi(match[2]);
 
-		child->localTranslation = translation;
-		child->localRotation = rotQuat;
-		child->localScaling = scale;
-		//child->animationDirection = (a > 0) ? 1.0f : -1.0f; // left and right move opposite
-		branch->addChild(child);
+			std::getline(in, line); // skip header
+			std::getline(in, line);
+			glm::mat4 rotation = parseMatrix(in);
+			std::getline(in, line);
+			glm::mat4 scaling = parseMatrix(in);
+			std::getline(in, line);
+			glm::mat4 translation = parseMatrix(in);
+
+			edges.emplace_back(parent, child, rotation, scaling, translation);
+		}
 	}
 
-	return branch;
+	return edges;
+}
+
+std::vector<std::vector<int>> SceneNode::buildChildrenList(
+	const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>>& edges
+) {
+	// maximum node index
+	int maxIndex = 0;
+	for (const auto& [parent, child, rot, scale, trans] : edges) {
+		maxIndex = std::max({ maxIndex, parent, child });
+	}
+
+	std::vector<std::vector<int>> childrenList(maxIndex + 1);
+
+	for (const auto& [parent, child, rot, scale, trans] : edges) {
+		childrenList[parent].push_back(child);
+
+	}
+
+	return childrenList;
+}
+
+
+SceneNode* SceneNode::createBranchingStructure(
+	int nodeIndex, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> transformations) {
+	// create node
+	SceneNode* node = new SceneNode();
+	node->localTranslation = glm::mat4(1.0f);
+	node->localRotation = glm::quat(1.0f, 0.f, 0.f, 0.f);
+	node->localScaling = glm::mat4(1.0f);
+
+	// Loop over children of this node
+	for (int childIndex : parentChildPairs[nodeIndex]) {
+		// Find the transformation for edge (nodeIndex -> childIndex)
+		auto it = std::find_if(
+			transformations.begin(),
+			transformations.end(),
+			[nodeIndex, childIndex](const auto& t) {
+				return std::get<0>(t) == nodeIndex && std::get<1>(t) == childIndex;
+			}
+		);
+
+		if (it == transformations.end()) {
+			std::cerr << "Missing transformation from " << nodeIndex << " to " << childIndex << "\n";
+			continue;
+		}
+
+		// Recursively create the child SceneNode
+		SceneNode* childNode = createBranchingStructure(childIndex, parentChildPairs, transformations);
+		if (!childNode) continue;
+
+		// Set child's local transforms from the tuple
+		childNode->localRotation = glm::quat_cast(std::get<2>(*it));   // need inverse of parent's (direct parent's, will have all the others)
+		childNode->localScaling = std::get<3>(*it);
+		childNode->localTranslation = std::get<4>(*it);
+
+		node->addChild(childNode);
+	}
+
+	return node;
 }
 
 // animation
