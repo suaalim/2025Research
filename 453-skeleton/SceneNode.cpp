@@ -306,7 +306,7 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 }
 
 // contour points are grouped by segments
-// now we need to bind
+// now we need to bind to node
 // get each group, map the first and last points to the tip, the middle point to the tip, and interpolate the rest
 std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments) {
 	std::vector<ContourBinding> bindings;
