@@ -130,26 +130,26 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices4.txt");
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices6.txt");
 	std::vector<std::vector<int>> parentChildPairs = SceneNode::buildChildrenList(edgeTransformations);
 	SceneNode* root = SceneNode::createBranchingStructure(0, parentChildPairs, edgeTransformations);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
-	contour = root->generateInitialContourControlPoints(root);
-	//std::vector<glm::vec3> contour = SceneNode::bSplineCurve(0, root);
-	contour = SceneNode::contourCatmullRom(contour, 8);
-	// branch-contour mapping
-	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
-	root->getBranches(root, pairs);
-	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
+	glm::vec3 pos = root->globalTransformation[3];
+	root->generateContourPoints(root, contour);
+	std::vector<std::vector<glm::vec3>> groupedContour;
+	groupedContour = SceneNode::contourCatmullRomGrouped(contour, 8);
+	//contour = root->generateInitialContourControlPoints(root);
+	//contour = SceneNode::contourCatmullRom(contour, 8);
 	// multiple branch-contour mapping
 	std::vector<std::tuple<SceneNode*, SceneNode*, int>> multiplePairs;
 	int branchLabel = 0;
 	root->labelBranches(root, multiplePairs, branchLabel);
-	std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);
-	root->bindToBranchingPoint(multipleBindings, multiplePairs);
+	std::vector<ContourBinding> multipleBindings = root->bindContourToBranches(groupedContour, root, multiplePairs);
+	/*std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);*/
+	//root->bindToBranchingPoint(multipleBindings, multiplePairs);
 	for (int i = 0; i <= 4; i++) {
 		root->multipleWeights(multipleBindings);
 	}
@@ -158,7 +158,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 10), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 8), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -166,6 +166,7 @@ int main() {
 	float lastTime = glfwGetTime();
 
 	while (!glfwWindowShouldClose(window)) {
+		glClearColor(1.0f, 1.0f, 1.0f, 1.0f);
 		glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 		// animation
 		float currentTime = glfwGetTime();
@@ -230,6 +231,14 @@ int main() {
 
 		// multiple branches
 		root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
+
+		//for (int i = 0; i < groupedContour.size(); i++) {
+		//	for (int j = 0; j < groupedContour[i].size(); j++) {
+		//		contourGeometry.verts.push_back(groupedContour[i][j]);
+		//		contourGeometry.cols.push_back(glm::vec3(1, 0, 0));
+		//	}
+		//}
+
 		std::vector<std::pair<SceneNode*, SceneNode*>> p;
 		for (const auto& tup : multiplePairs) {
 			p.emplace_back(std::get<0>(tup), std::get<1>(tup));
@@ -243,22 +252,22 @@ int main() {
 			contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
 		}
 
-		mappingLines.verts.clear();
-		mappingLines.indices.clear();
+		//mappingLines.verts.clear();
+		//mappingLines.indices.clear();
 
-		// UPDATE ONCE BRANCHES INTERPOLATE
-		int i = 0;
-		for (const auto& binding : multipleBindings) {
-			glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
-			int startIdx = mappingLines.verts.size();
-			mappingLines.verts.push_back(binding.contourPoint);
-			mappingLines.verts.push_back(binding.closestPoint);
-			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
-			mappingLines.cols.push_back(glm::vec3(0.f, 0.f, 1.0f));
-			mappingLines.indices.push_back(startIdx);     // from contour
-			mappingLines.indices.push_back(startIdx + 1); // to closest branch point
-			++i;
-		}
+		//// UPDATE ONCE BRANCHES INTERPOLATE
+		//int i = 0;
+		//for (const auto& binding : multipleBindings) {
+		//	glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
+		//	int startIdx = mappingLines.verts.size();
+		//	mappingLines.verts.push_back(binding.contourPoint);
+		//	mappingLines.verts.push_back(binding.closestPoint);
+		//	mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
+		//	mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
+		//	mappingLines.indices.push_back(startIdx);     // from contour
+		//	mappingLines.indices.push_back(startIdx + 1); // to closest branch point
+		//	++i;
+		//}
 
 		glPointSize(5);
 		// Branch
