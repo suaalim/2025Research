@@ -21,7 +21,6 @@
 #include <cmath>
 #include <tuple>
 #include <vector>
-#include <unordered_set>
 #include <fstream>
 #include <sstream>
 #include <regex>
@@ -61,14 +60,14 @@ glm::mat4 parseMatrix(std::ifstream& in) {
 }
 
 // extract the local matrices per edge
-std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> SceneNode::extractEdgeTransforms(const std::string& filename) {
+std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> SceneNode::extractEdgeTransforms(const std::string& filename) {
 	std::ifstream in(filename);
 	if (!in.is_open()) {
 		std::cerr << "Failed to open file\n";
 		return {};
 	}
 
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> edges;
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edges;
 	std::string line;
 	std::regex edgeRegex(R"#(Edge\s+(\d+)\s+->\s+(\d+))#");
 	std::smatch match;
@@ -81,12 +80,15 @@ std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> SceneNode::ex
 			std::getline(in, line); // skip header
 			std::getline(in, line);
 			glm::mat4 rotation = parseMatrix(in);
-			std::getline(in, line); 
+			std::getline(in, line);
 			glm::mat4 scaling = parseMatrix(in);
-			std::getline(in, line); 
+			std::getline(in, line);
 			glm::mat4 translation = parseMatrix(in);
+			std::getline(in, line);
+			std::getline(in, line); // scaling factor
+			float scalingFactor = std::stof(line);
 
-			edges.emplace_back(parent, child, rotation, scaling, translation);
+			edges.emplace_back(parent, child, rotation, scaling, translation, scalingFactor);
 		}
 	}
 
@@ -94,19 +96,19 @@ std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> SceneNode::ex
 }
 
 std::vector<std::vector<int>> SceneNode::buildChildrenList(
-	const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>>& edges
+	const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>>& edges
 ) {
 	// maximum node index
 	int maxIndex = 0;
-	for (const auto& [parent, child, rot, scale, trans] : edges) {
+	for (const auto& [parent, child, rot, scale, trans, scaleF] : edges) {
 		maxIndex = std::max({ maxIndex, parent, child });
 	}
 
 	std::vector<std::vector<int>> childrenList(maxIndex + 1);
 
-	for (const auto& [parent, child, rot, scale, trans] : edges) {
+	for (const auto& [parent, child, rot, scale, trans, scaleF] : edges) {
 		childrenList[parent].push_back(child);
-		
+
 	}
 
 	return childrenList;
@@ -114,12 +116,13 @@ std::vector<std::vector<int>> SceneNode::buildChildrenList(
 
 
 SceneNode* SceneNode::createBranchingStructure(
-	int nodeIndex,  std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> transformations) {
+	int nodeIndex, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> transformations) {
 	// create node
 	SceneNode* node = new SceneNode();
 	node->localTranslation = glm::mat4(1.0f);
 	node->localRotation = glm::quat(1.0f, 0.f, 0.f, 0.f);
 	node->localScaling = glm::mat4(1.0f);
+	node->S = 1.f;
 
 	// Loop over children of this node
 	for (int childIndex : parentChildPairs[nodeIndex]) {
@@ -142,15 +145,17 @@ SceneNode* SceneNode::createBranchingStructure(
 		if (!childNode) continue;
 
 		// Set child's local transforms from the tuple
-		childNode->localRotation = glm::quat_cast(std::get<2>(*it));   // need inverse of parent's (direct parent's, will have all the others)
+		childNode->localRotation = glm::quat_cast(std::get<2>(*it));
 		childNode->localScaling = std::get<3>(*it);
 		childNode->localTranslation = std::get<4>(*it);
+		childNode->S = std::get<5>(*it);
 
 		node->addChild(childNode);
 	}
 
 	return node;
 }
+
 
 // animation
 void SceneNode::animate(float deltaTime) {
@@ -163,7 +168,8 @@ void SceneNode::animate(float deltaTime) {
 	animationAngle += deltaTime * 30.0f * animationDirection;
 	animateRotation = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(animationAngle), glm::vec3(0, 0, 1)));
 
-	animationScaling += deltaTime * animationScaling;
+	//animationScaling += deltaTime * animationScaling;
+	animationScaling = (1 + deltaTime * S) * animationScaling;
 	// uniform scaling
 	animateScaling = glm::scale(glm::mat4(1.0f), glm::vec3(animationScaling));
 	// non-uniform scaling
@@ -355,16 +361,16 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
 	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
 
-	// take two consecutive points, go deep until the parents are the same -> bind to this parent
-	// exclude the leftmost and rightmost groups of contour points
-	for (int i = contourPoints[0].size(); i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
-		if (abs(bindings[i].childBranchIndex - bindings[i + 1].childBranchIndex) > 1) {
-			std::tuple<SceneNode*, SceneNode*> commonAncestor = findChildrenOfFirstCommonAncestorFromRoot(root, bindings[i], bindings[i + 1]);
-			// we only want to bind to ancestor if the two points belong to different branches
-			bindings[i].t = 0.f;
-			bindings[i] = { std::get<0>(commonAncestor)->parent, std::get<0>(commonAncestor), bindings[i].contourPoint, bindings[i].t, bindings[i].t * std::get<0>(commonAncestor)->globalTransformation[3] + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation[3], glm::inverse(bindings[i].t * std::get<0>(commonAncestor)->globalTransformation + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation) };
-		}
-	}
+	//// take two consecutive points, go deep until the parents are the same -> bind to this parent
+	//// exclude the leftmost and rightmost groups of contour points
+	//for (int i = contourPoints[0].size(); i < bindings.size() - contourPoints[contourPoints.size() - 1].size(); i++) {
+	//	if (abs(bindings[i].childBranchIndex - bindings[i + 1].childBranchIndex) > 1) {
+	//		std::tuple<SceneNode*, SceneNode*> commonAncestor = findChildrenOfFirstCommonAncestorFromRoot(root, bindings[i], bindings[i + 1]);
+	//		// we only want to bind to ancestor if the two points belong to different branches
+	//		bindings[i].t = 0.f;
+	//		bindings[i] = { std::get<0>(commonAncestor)->parent, std::get<0>(commonAncestor), bindings[i].contourPoint, bindings[i].t, bindings[i].t * std::get<0>(commonAncestor)->globalTransformation[3] + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation[3], glm::inverse(bindings[i].t * std::get<0>(commonAncestor)->globalTransformation + (1 - bindings[i].t) * std::get<0>(commonAncestor)->parent->globalTransformation) };
+	//	}
+	//}
 
 	return bindings;
 }
