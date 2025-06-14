@@ -187,12 +187,12 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 	glm::mat4 animateRotationMatrix = glm::toMat4(animateRotation);
 	glm::mat4 localRotationMatrix = glm::toMat4(localRotation);
 	// local to global animated matrix: A = T*V
-	globalTransformation = parentTransform * animateScaling * localRotationMatrix * localTranslation * localScaling;  // scale in the local coordinate
+	globalTransformation = parentTransform * animateScaling * localScaling * localRotationMatrix * localTranslation;  // scale in the local coordinate
 	// global to local rest post matrix
 	// need to apply parentRest outside because if not it will be double inversed (inverse every call)
-	restPoseInverse = glm::inverse(localRotationMatrix * localTranslation * localScaling) * parentRestInverse;
+	restPoseInverse = glm::inverse(localScaling * localRotationMatrix * localTranslation) * parentRestInverse;
 	// rest pose matrix
-	restPose = parentRest * localRotationMatrix * localTranslation * localScaling;
+	restPose = parentRest * localScaling * localRotationMatrix * localTranslation;
 	// global position of node
 	// for drawing purposes
 	glm::vec3 rootPos = glm::vec3(globalTransformation[3]);
