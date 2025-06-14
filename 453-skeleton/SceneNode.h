@@ -21,6 +21,7 @@ struct ContourBinding {
 	glm::mat4 previousAnimateInverse;
 	std::vector<float> weights;
 	std::vector<glm::mat4> previousAnimateInverseMat;
+	int childBranchIndex;
 };
 
 struct TransformData {
@@ -34,10 +35,10 @@ class SceneNode {
 public:
 	SceneNode();
 	void addChild(SceneNode* child);
-	static SceneNode* createBranchingStructure(int depth, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> transformations);
-	static std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> extractEdgeTransforms(const std::string& filename);
+	static SceneNode* createBranchingStructure(int depth, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> transformations);
+	static std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> extractEdgeTransforms(const std::string& filename);
 	static std::vector<std::vector<int>> buildChildrenList(
-		const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>>& edges
+		const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>>& edges
 	);
 	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
@@ -65,7 +66,14 @@ public:
 	void generateContourPoints(SceneNode* node, std::vector<glm::vec3>& controlPoints);
 	static std::vector<std::vector<glm::vec3>> contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment);
 	std::vector<ContourBinding> bindContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
-	
+
+	std::tuple<SceneNode*, SceneNode*> findChildrenOfFirstCommonAncestorFromRoot(
+		SceneNode* root,
+		const ContourBinding& a,
+		const ContourBinding& b);
+	std::vector<ContourBinding> bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments);
+	std::vector<glm::vec3> midPoints(std::vector<glm::vec3>& contourPoints);
+
 	// global transformation A = T*V
 	glm::mat4 globalTransformation = glm::mat4(1.0f);
 	// global to local transformation for rest pose 
@@ -94,5 +102,6 @@ private:
 	float animationScaling = 1.0f;
 	float animationTime = 0.0f;
 	float animationDuration = 0.5f; // how long the animation lasts
+	float S = 1.f;
 
 };

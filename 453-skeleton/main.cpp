@@ -130,15 +130,17 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices6.txt");
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices7.txt");
 	std::vector<std::vector<int>> parentChildPairs = SceneNode::buildChildrenList(edgeTransformations);
 	SceneNode* root = SceneNode::createBranchingStructure(0, parentChildPairs, edgeTransformations);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
 	// contour initialization
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
-	glm::vec3 pos = root->globalTransformation[3];
-	root->generateContourPoints(root, contour);
+	//glm::vec3 pos = root->globalTransformation[3];
+	//root->generateContourPoints(root, contour);
+	contour = root->generateInitialContourControlPoints(root);
+	contour = root->midPoints(contour);
 	std::vector<std::vector<glm::vec3>> groupedContour;
 	groupedContour = SceneNode::contourCatmullRomGrouped(contour, 8);
 	//contour = root->generateInitialContourControlPoints(root);
@@ -147,7 +149,7 @@ int main() {
 	std::vector<std::tuple<SceneNode*, SceneNode*, int>> multiplePairs;
 	int branchLabel = 0;
 	root->labelBranches(root, multiplePairs, branchLabel);
-	std::vector<ContourBinding> multipleBindings = root->bindContourToBranches(groupedContour, root, multiplePairs);
+	std::vector<ContourBinding> multipleBindings = root->bindInterpolatedContourToBranches(groupedContour, root, multiplePairs);
 	/*std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);*/
 	//root->bindToBranchingPoint(multipleBindings, multiplePairs);
 	for (int i = 0; i <= 4; i++) {
@@ -244,7 +246,6 @@ int main() {
 			p.emplace_back(std::get<0>(tup), std::get<1>(tup));
 		}
 		root->interpolateBranchTransforms(p, branchUpdates);
-
 		multipleBindings = root->addContourPoints(multipleBindings);
 		root->animationPerFrameUsingMultipleWeights(multipleBindings, multiplePairs);
 		for (int i = 0; i < multipleBindings.size(); i++) {
@@ -252,22 +253,22 @@ int main() {
 			contourGeometry.cols.push_back(glm::vec3(1.0f, 0.f, 0.f));
 		}
 
-		//mappingLines.verts.clear();
-		//mappingLines.indices.clear();
+		mappingLines.verts.clear();
+		mappingLines.indices.clear();
 
-		//// UPDATE ONCE BRANCHES INTERPOLATE
-		//int i = 0;
-		//for (const auto& binding : multipleBindings) {
-		//	glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
-		//	int startIdx = mappingLines.verts.size();
-		//	mappingLines.verts.push_back(binding.contourPoint);
-		//	mappingLines.verts.push_back(binding.closestPoint);
-		//	mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
-		//	mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
-		//	mappingLines.indices.push_back(startIdx);     // from contour
-		//	mappingLines.indices.push_back(startIdx + 1); // to closest branch point
-		//	++i;
-		//}
+		// UPDATE ONCE BRANCHES INTERPOLATE
+		int i = 0;
+		for (const auto& binding : multipleBindings) {
+			glm::mat4 animatedMat = binding.t * binding.childNode->globalTransformation * binding.childNode->restPoseInverse + (1.0f - binding.t) * binding.parentNode->globalTransformation * binding.parentNode->restPoseInverse;
+			int startIdx = mappingLines.verts.size();
+			mappingLines.verts.push_back(binding.contourPoint);
+			mappingLines.verts.push_back(binding.closestPoint);
+			mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
+			mappingLines.cols.push_back(glm::vec3(0.5f, 0.f, 0.5f));
+			mappingLines.indices.push_back(startIdx);     // from contour
+			mappingLines.indices.push_back(startIdx + 1); // to closest branch point
+			++i;
+		}
 
 		glPointSize(5);
 		// Branch
