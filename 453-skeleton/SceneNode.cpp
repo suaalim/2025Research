@@ -245,8 +245,8 @@ std::vector<glm::vec3> SceneNode::generateInitialContourControlPoints(SceneNode*
 	// root
 	glm::vec3 rootPos = glm::vec3(root->globalTransformation[3]);
 
-	glm::vec3 leftOffset = rootPos - glm::vec3(0.5f, 0.0f, 0.0f);
-	glm::vec3 rightOffset = rootPos + glm::vec3(0.5f, 0.0f, 0.0f);
+	glm::vec3 leftOffset = rootPos - glm::vec3(0.15f, 0.15f, 0.0f);
+	glm::vec3 rightOffset = rootPos + glm::vec3(0.15f, -0.15f, 0.0f);
 
 	controlPoints.push_back(leftOffset); 
 
