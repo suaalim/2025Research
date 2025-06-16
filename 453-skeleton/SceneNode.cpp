@@ -201,7 +201,7 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 	unsigned int currentIndex = outGeometry.verts.size();
 	// parent geometry
 	outGeometry.verts.push_back(rootPos);
-	outGeometry.cols.push_back(glm::vec3(0.f, 1.f, 0.f));
+	outGeometry.cols.push_back(glm::vec3(0.f, 0.8f, 0.0f));
 
 	for (SceneNode* child : children) {
 		// child index to draw line segment from parent to child pair

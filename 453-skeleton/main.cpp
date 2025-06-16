@@ -160,7 +160,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 8), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 7), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -271,6 +271,7 @@ int main() {
 		}
 
 		glPointSize(5);
+		glLineWidth(2.0f); // Set line width to 2 pixels
 		// Branch
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);
