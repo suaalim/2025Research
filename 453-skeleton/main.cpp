@@ -148,7 +148,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 8), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 7), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -212,7 +212,7 @@ int main() {
 		root->interpolateBranchTransforms(pairs, branchUpdates);
 		 
 		// add contour point if necessary and bind
-		//bindings = root->addContourPoints(bindings);
+		bindings = root->addContourPoints(bindings);
 		root->animationPerFrame(bindings);
 		for (int i = 0; i < bindings.size(); i++) {
 			contourGeometry.verts.push_back(bindings[i].contourPoint);

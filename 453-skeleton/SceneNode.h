@@ -25,8 +25,6 @@ struct ContourBinding {
 	float t;                 
 	glm::vec3 closestPoint;
 	glm::mat4 previousAnimateInverse;
-	std::vector<float> weights;
-	std::vector<glm::mat4> previousAnimateInverseMat;
 };
 
 // SceneNode for Scene Graph
