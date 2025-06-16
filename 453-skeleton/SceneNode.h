@@ -59,7 +59,11 @@ public:
 	void animationPerFrame(std::vector<ContourBinding>& bindings);
 	void handleMouseClick(double xpos, double ypos, int screenWidth, int screenHeight,
 		glm::mat4 view, glm::mat4 projection, std::vector<glm::vec3> contourPoints, CPU_Geometry geom);
-	
+
+	std::vector<ContourBinding> bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::pair<SceneNode*, SceneNode*>>& segments);
+	std::vector<std::vector<glm::vec3>> contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment);
+	std::vector<glm::vec3> midPoints(std::vector<glm::vec3>& contourPoints);
+
 	// global transformation A = T*V
 	glm::mat4 globalTransformation = glm::mat4(1.0f);
 	// global to local transformation for rest pose 

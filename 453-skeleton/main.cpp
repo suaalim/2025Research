@@ -138,12 +138,16 @@ int main() {
 	CPU_Geometry contourGeometry;
 	std::vector<glm::vec3> contour;
 	contour = root->generateInitialContourControlPoints(root);
+	contour = root->midPoints(contour);
+	std::vector<std::vector<glm::vec3>> groupedContour;
+	groupedContour = root->contourCatmullRomGrouped(contour, 8);
 	//std::vector<glm::vec3> contour = SceneNode::bSplineCurve(0, root);
-	contour = SceneNode::contourCatmullRom(contour, 8);
+	//contour = SceneNode::contourCatmullRom(contour, 8);
 	// branch-contour mapping
 	std::vector<std::pair<SceneNode*, SceneNode*>> pairs;
 	root->getBranches(root, pairs);
-	std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
+	//std::vector<ContourBinding> bindings = root->bindContourToBranches(contour, root, pairs);
+	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
