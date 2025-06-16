@@ -130,7 +130,7 @@ int main() {
 	// branch initialization
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices9.txt");
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices7.txt");
 	std::vector<std::vector<int>> parentChildPairs = SceneNode::buildChildrenList(edgeTransformations);
 	SceneNode* root = SceneNode::createBranchingStructure(0, parentChildPairs, edgeTransformations);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
@@ -148,7 +148,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 7), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -237,6 +237,7 @@ int main() {
 		}
 
 		glPointSize(5);
+		glLineWidth(2.0f); // Set line width to 2 pixels
 		// Branch
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);
