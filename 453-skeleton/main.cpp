@@ -129,7 +129,7 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices7.txt");
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices5.txt");
 	std::vector<std::vector<int>> parentChildPairs = SceneNode::buildChildrenList(edgeTransformations);
 	SceneNode* root = SceneNode::createBranchingStructure(0, parentChildPairs, edgeTransformations);
 	
@@ -140,12 +140,12 @@ int main() {
 	std::vector<glm::vec3> contour;
 	contour = root->generateInitialContourControlPoints(root);
 	contour = root->midPoints(contour);
-	std::vector<std::vector<glm::vec3>> groupedContour = root->contourCatmullRomGrouped(contour, 8);
 	// branch-contour mapping
 	std::vector<std::tuple<SceneNode*, SceneNode*, int>> pairs;
 	int index = 0;
 	root->labelBranches(root, pairs, index);
-	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour, root, pairs);  
+	std::vector<std::pair<std::vector<glm::vec3>, std::pair<SceneNode*, SceneNode*>>> groupedContour = root->contourCatmullRomGrouped(contour, 8, pairs);
+	std::vector<ContourBinding> bindings = root->bindInterpolatedContourToBranches(groupedContour);  
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
@@ -221,6 +221,7 @@ int main() {
 		}
 
 		glPointSize(5);
+		glLineWidth(3.0f); // Set line width to 2 pixels
 		// Branch
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);

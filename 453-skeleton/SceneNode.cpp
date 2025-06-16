@@ -201,7 +201,7 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 	unsigned int currentIndex = outGeometry.verts.size();
 	// parent geometry
 	outGeometry.verts.push_back(rootPos);
-	outGeometry.cols.push_back(glm::vec3(0.f, 1.f, 0.f));
+	outGeometry.cols.push_back(glm::vec3(0.f, 0.8f, 0.f));
 
 	for (SceneNode* child : children) {
 		// child index to draw line segment from parent to child pair
@@ -279,8 +279,9 @@ std::vector<glm::vec3> SceneNode::midPoints(std::vector<glm::vec3>& contourPoint
 	return copyOfContour;
 }
 
-std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment) {
-	std::vector<std::vector<glm::vec3>> groupedContourPoints;
+std::vector<std::pair<std::vector<glm::vec3>, std::pair<SceneNode*, SceneNode*>>> SceneNode::contourCatmullRomGrouped(std::vector<glm::vec3> controlPoints, int pointsPerSegment, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& branches) {
+	std::vector<std::pair<std::vector<glm::vec3>, std::pair<SceneNode*, SceneNode*>>> groupedContourPoints;
+	std::pair<SceneNode*, SceneNode*> segment;
 
 	std::vector<glm::vec3> paddedPoints;
 	glm::vec3 first = controlPoints[0] + (controlPoints[0] - controlPoints[1]);
@@ -303,9 +304,25 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 				t
 			);
 			segmentPoints.push_back(pt);
+
+			if (j == pointsPerSegment / 2) {
+				float minDist = FLT_MAX;
+				for (auto& [parent, child, index] : branches) {
+					glm::vec3 P = parent->globalTransformation[3];
+					glm::vec3 Q = child->globalTransformation[3];
+
+					glm::vec3 closest = SceneNode::intersectionPoint(P, Q, pt);
+					float dist = glm::length(closest - pt);
+
+					if (dist < minDist) {
+						minDist = dist;
+						segment = { parent, child };
+					}
+				}
+			}
 		}
 
-		groupedContourPoints.push_back(segmentPoints);
+		groupedContourPoints.push_back({ segmentPoints, segment });
 	}
 
 	return groupedContourPoints;
@@ -314,42 +331,30 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 // contour points are grouped by segments
 // now we need to bind to node
 // get each group, map the first and last points to the tip, the middle point to the tip, and interpolate the rest
-std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const std::vector<std::vector<glm::vec3>>& contourPoints, SceneNode* root, std::vector<std::tuple<SceneNode*, SceneNode*, int>>& segments) {
+std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(std::vector<std::pair<std::vector<glm::vec3>, std::pair<SceneNode*, SceneNode*>>>& contourPoints) {
 	std::vector<ContourBinding> bindings;
-	glm::vec3 rootPos = root->globalTransformation[3];
+	float t = 0;
 
 	// segment
 	for (int i = 0; i < contourPoints.size(); i++) {
 		// individual points in the segment
-		for (int j = 0; j < contourPoints[i].size(); j++) {
-			float minDist = FLT_MAX;
+		for (int j = 0; j < contourPoints[i].first.size(); j++) {
+			SceneNode* parent = contourPoints[i].second.first;
+			SceneNode* child = contourPoints[i].second.second;
+			glm::vec3 P = parent->globalTransformation[3];
+			glm::vec3 Q = child->globalTransformation[3];
 			ContourBinding bestBinding;
 
-			// different scenarios depending on the index of i
-			for (auto& [parent, child, index] : segments) {
-				glm::vec3 P = parent->globalTransformation[3];
-				glm::vec3 Q = child->globalTransformation[3];
-
-				glm::vec3 closest = SceneNode::intersectionPoint(P, Q, contourPoints[i][j]);
-				float t = glm::clamp(glm::dot(Q - P, contourPoints[i][j] - P) / glm::dot(Q - P, Q - P), 0.0f, 1.0f);
-				float dist = glm::length(closest - contourPoints[i][j]);
-
-				if (dist < minDist) {
-					minDist = dist;
-					// instead of taking t directly, interpolate along the branch
-					if (i % 2 == 1) t = 1 - (j / ((float)contourPoints[i].size() - 1));
-					else t = (j / ((float)contourPoints[i].size() - 1));
-
-					bestBinding = { parent, child, contourPoints[i][j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation), index };
-				}
-			}
+			if (i % 2 == 1) t = 1 - (j / ((float)std::get<0>(contourPoints[i]).size() - 1));
+			else t = (j / ((float)std::get<0>(contourPoints[i]).size() - 1));
+			bestBinding = { parent, child, contourPoints[i].first[j], t, t * Q + (1 - t) * P, glm::inverse(t * child->globalTransformation + (1 - t) * parent->globalTransformation)};
 			bindings.push_back(bestBinding);
 		}
 	}
 
 	// first and last contour points are mapped to the root
 	// now there is no invisible root branch
-	bindings[0].parentNode = std::get<0>(segments[0]);
+	/*bindings[0].parentNode = std::get<0>(segments[0]);
 	bindings[0].childNode = std::get<1>(segments[0]);
 	bindings[0].t = 0.f;
 	bindings[0].closestPoint = (bindings[0].t * bindings[0].childNode->globalTransformation[3] + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation[3]);
@@ -359,7 +364,7 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 	bindings[bindings.size() - 1].childNode = std::get<1>(segments[0]);
 	bindings[bindings.size() - 1].t = 0.f;
 	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
-	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
+	bindings[bindings.size() - 1].previousAnimateInverse = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);*/
 
 	//// take two consecutive points, go deep until the parents are the same -> bind to this parent
 	//// exclude the leftmost and rightmost groups of contour points
