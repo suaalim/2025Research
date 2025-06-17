@@ -60,14 +60,14 @@ glm::mat4 parseMatrix(std::ifstream& in) {
 }
 
 // extract the local matrices per edge
-std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> SceneNode::extractEdgeTransforms(const std::string& filename) {
+std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>> SceneNode::extractEdgeTransforms(const std::string& filename) {
 	std::ifstream in(filename);
 	if (!in.is_open()) {
 		std::cerr << "Failed to open file\n";
 		return {};
 	}
 
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> edges;
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>> edges;
 	std::string line;
 	std::regex edgeRegex(R"#(Edge\s+(\d+)\s+->\s+(\d+))#");
 	std::smatch match;
@@ -87,8 +87,11 @@ std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> SceneN
 			std::getline(in, line);
 			std::getline(in, line); // scaling factor
 			float scalingFactor = std::stof(line);
+			std::getline(in, line);
+			std::getline(in, line); // rotation direction
+			float rotationDirection = std::stof(line);
 
-			edges.emplace_back(parent, child, rotation, scaling, translation, scalingFactor);
+			edges.emplace_back(parent, child, rotation, scaling, translation, scalingFactor, rotationDirection);
 		}
 	}
 
@@ -96,17 +99,17 @@ std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> SceneN
 }
 
 std::vector<std::vector<int>> SceneNode::buildChildrenList(
-	const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>>& edges
+	const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>>& edges
 ) {
 	// maximum node index
 	int maxIndex = 0;
-	for (const auto& [parent, child, rot, scale, trans, scaleF] : edges) {
+	for (const auto& [parent, child, rot, scale, trans, scaleF, rotationD] : edges) {
 		maxIndex = std::max({ maxIndex, parent, child });
 	}
 
 	std::vector<std::vector<int>> childrenList(maxIndex + 1);
 
-	for (const auto& [parent, child, rot, scale, trans, scaleF] : edges) {
+	for (const auto& [parent, child, rot, scale, trans, scaleF, rotationD] : edges) {
 		childrenList[parent].push_back(child);
 
 	}
@@ -116,13 +119,14 @@ std::vector<std::vector<int>> SceneNode::buildChildrenList(
 
 
 SceneNode* SceneNode::createBranchingStructure(
-	int nodeIndex, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float>> transformations) {
+	int nodeIndex, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>> transformations) {
 	// create node
 	SceneNode* node = new SceneNode();
 	node->localTranslation = glm::mat4(1.0f);
 	node->localRotation = glm::quat(1.0f, 0.f, 0.f, 0.f);
 	node->localScaling = glm::mat4(1.0f);
 	node->S = 1.f;
+	node->animationDirection = 0;
 
 	// Loop over children of this node
 	for (int childIndex : parentChildPairs[nodeIndex]) {
@@ -145,10 +149,11 @@ SceneNode* SceneNode::createBranchingStructure(
 		if (!childNode) continue;
 
 		// Set child's local transforms from the tuple
-		childNode->localRotation = glm::quat_cast(std::get<2>(*it));   
+		childNode->localRotation = glm::quat_cast(std::get<2>(*it));
 		childNode->localScaling = std::get<3>(*it);
 		childNode->localTranslation = std::get<4>(*it);
 		childNode->S = std::get<5>(*it);
+		childNode->animationDirection = std::get<6>(*it);
 
 		node->addChild(childNode);
 	}
@@ -165,7 +170,7 @@ void SceneNode::animate(float deltaTime) {
 	}
 	animationTime += deltaTime;
 
-	animationAngle += deltaTime * 30.0f * animationDirection; 
+	animationAngle += deltaTime * 30.0f * animationDirection;
 	animateRotation = glm::toQuat(glm::rotate(glm::mat4(1.0f), glm::radians(animationAngle), glm::vec3(0, 0, 1)));
 
 	//animationScaling += deltaTime * animationScaling;
@@ -187,7 +192,7 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 	glm::mat4 animateRotationMatrix = glm::toMat4(animateRotation);
 	glm::mat4 localRotationMatrix = glm::toMat4(localRotation);
 	// local to global animated matrix: A = T*V
-	globalTransformation = parentTransform * animateScaling * localScaling * localRotationMatrix * localTranslation;  // scale in the local coordinate
+	globalTransformation = parentTransform * animateRotationMatrix * localScaling * localRotationMatrix * localTranslation;  // scale in the local coordinate
 	// global to local rest post matrix
 	// need to apply parentRest outside because if not it will be double inversed (inverse every call)
 	restPoseInverse = glm::inverse(localScaling * localRotationMatrix * localTranslation) * parentRestInverse;
@@ -196,12 +201,12 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 	// global position of node
 	// for drawing purposes
 	glm::vec3 rootPos = glm::vec3(globalTransformation[3]);
-	
+
 	// parent index
 	unsigned int currentIndex = outGeometry.verts.size();
 	// parent geometry
 	outGeometry.verts.push_back(rootPos);
-	outGeometry.cols.push_back(glm::vec3(0.f, 0.8f, 0.0f));
+	outGeometry.cols.push_back(glm::vec3(0.f, 0.8f, 0.f));
 
 	for (SceneNode* child : children) {
 		// child index to draw line segment from parent to child pair
