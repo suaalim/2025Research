@@ -35,10 +35,10 @@ class SceneNode {
 public:
 	SceneNode();
 	void addChild(SceneNode* child);
-	static SceneNode* createBranchingStructure(int depth, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>> transformations);
-	static std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>> extractEdgeTransforms(const std::string& filename);
+	static SceneNode* createBranchingStructure(int depth, std::vector<std::vector<int>> parentChildPairs, std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int, float>> transformations);
+	static std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int, float>> extractEdgeTransforms(const std::string& filename);
 	static std::vector<std::vector<int>> buildChildrenList(
-		const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int>>& edges
+		const std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int, float>>& edges
 	);
 	void updateBranch(const glm::mat4& parentTransform, const glm::mat4& parentRestInverse, const glm::mat4& parentRest, CPU_Geometry& outGeometry);
 	void animate(float deltaTime);
@@ -103,5 +103,6 @@ private:
 	float animationTime = 0.0f;
 	float animationDuration = 0.5f; // how long the animation lasts
 	float S = 1.f;
+	float rotationAngle = 0.f;
 
 };
