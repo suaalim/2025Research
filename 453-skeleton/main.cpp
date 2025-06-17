@@ -152,9 +152,7 @@ int main() {
 	std::vector<ContourBinding> multipleBindings = root->bindInterpolatedContourToBranches(groupedContour, root, multiplePairs);
 	/*std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);*/
 	//root->bindToBranchingPoint(multipleBindings, multiplePairs);
-	for (int i = 0; i <= 4; i++) {
-		root->multipleWeights(multipleBindings);
-	}
+	root->multipleWeights(multipleBindings);
 
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;

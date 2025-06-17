@@ -646,7 +646,7 @@ void SceneNode::multipleWeights(std::vector<ContourBinding>& bindings) {
 		for (int j = 0; j < bindings[i].weights.size(); j++) {
 			// take the average (direct averaging or using rate of blending)
 			//float average = (weightCopies[i - 1][j] + weightCopies[i][j] + weightCopies[i + 1][j]) / 3.0f;
-			float average = 0.2 * (((weightCopies[i - 1][j] + weightCopies[i][j] + weightCopies[i + 1][j]) / 3.0f) - weightCopies[i][j]) + weightCopies[i][j];
+			float average = 0.8 * (((weightCopies[i - 1][j] + weightCopies[i][j] + weightCopies[i + 1][j]) / 3.0f) - weightCopies[i][j]) + weightCopies[i][j];
 			bindings[i].weights[j] = average;
 		}
 	}
