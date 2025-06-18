@@ -246,7 +246,7 @@ int main() {
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);
 		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
-		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
+		//glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
 
 		// Interpolated branch
 		for (int i = 0; i < branchUpdates.size(); i++) {
@@ -261,10 +261,10 @@ int main() {
 		glDrawArrays(GL_POINTS, 0, contourGeometry.verts.size());
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
 
-		// Mapping (DEBUGGING PURPOSES)
-		updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
-		glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
-		draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
+		//// Mapping (DEBUGGING PURPOSES)
+		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		//glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
+		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

@@ -380,7 +380,7 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 	for (size_t i = 0; i < paddedPoints.size() - 3; i++) {
 		std::vector<glm::vec3> segmentPoints;
 
-		for (int j = 0; j <= pointsPerSegment; j++) {
+		for (int j = 0; j < pointsPerSegment; j++) {
 			float t = float(j) / pointsPerSegment;
 			glm::vec3 pt = glm::catmullRom(
 				paddedPoints[i],
@@ -391,7 +391,13 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 			);
 			segmentPoints.push_back(pt);
 		}
-
+		if (i == paddedPoints.size() - 4) segmentPoints.push_back(glm::catmullRom(
+			paddedPoints[i],
+			paddedPoints[i + 1],
+			paddedPoints[i + 2],
+			paddedPoints[i + 3],
+			1
+		));
 		groupedContourPoints.push_back(segmentPoints);
 	}
 
@@ -558,7 +564,7 @@ void SceneNode::interpolateBranchTransforms(std::vector<std::pair<SceneNode*, Sc
 			glm::vec3 pos = t * child->restPose[3] + (1 - t) * parent->restPose[3];
 
 			geom.verts.push_back(glm::vec3(animatedMat * glm::vec4(pos, 1.0f)));
-			geom.cols.push_back(glm::vec3(1.0f)); 
+			geom.cols.push_back(glm::vec3(0.f, 0.8f, 0.f)); 
 		}
 
 		outGeometry.push_back(geom);
