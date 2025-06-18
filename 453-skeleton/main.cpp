@@ -130,7 +130,7 @@ int main() {
 	CPU_Geometry branchGeometry;
 	std::vector<CPU_Geometry> branchUpdates;
 
-	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices9.txt");
+	std::vector<std::tuple<int, int, glm::mat4, glm::mat4, glm::mat4, float, int, float>> edgeTransformations = SceneNode::extractEdgeTransforms("D:\\Program\\C++\\NewPhytologist2017\\articulated-structure\\plyFile\\transform_matrices7.txt");
 	std::vector<std::vector<int>> parentChildPairs = SceneNode::buildChildrenList(edgeTransformations);
 	SceneNode* root = SceneNode::createBranchingStructure(0, parentChildPairs, edgeTransformations);
 	root->updateBranch(glm::mat4(1.0f), glm::mat4(1.0f), glm::mat4(1.0f), branchGeometry);
@@ -151,9 +151,10 @@ int main() {
 	root->labelBranches(root, multiplePairs, branchLabel);
 	std::vector<ContourBinding> multipleBindings = root->bindInterpolatedContourToBranches(groupedContour, root, multiplePairs);
 	/*std::vector<ContourBinding> multipleBindings = root->bindContourToMultipleBranches(contour, root, multiplePairs);*/
-	//root->bindToBranchingPoint(multipleBindings, multiplePairs);
+	root->bindToBranchingPoint(multipleBindings, multiplePairs);
 	root->multipleWeights(multipleBindings);
-
+	root->multipleWeights(multipleBindings);
+	root->multipleWeights(multipleBindings);
 	// DEBUGGING PURPOSES
 	CPU_Geometry mappingLines;
 
@@ -274,12 +275,12 @@ int main() {
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);
 		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
-		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
+		//glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
 
 		// Interpolated branch
 		for (int i = 0; i < branchUpdates.size(); i++) {
 			updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
-			glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
+			//glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
 			glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
 			//glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
 		}
@@ -289,10 +290,10 @@ int main() {
 		glDrawArrays(GL_POINTS, 0, contourGeometry.verts.size());
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
 
-		// Mapping (DEBUGGING PURPOSES)
-		updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
-		glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
-		draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
+		//// Mapping (DEBUGGING PURPOSES)
+		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		//glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
+		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();

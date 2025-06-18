@@ -197,7 +197,7 @@ void SceneNode::updateBranch(const glm::mat4& parentTransform, const glm::mat4& 
 	glm::mat4 animateRotationMatrix = glm::toMat4(animateRotation);
 	glm::mat4 localRotationMatrix = glm::toMat4(localRotation);
 	// local to global animated matrix: A = T*V
-	globalTransformation = parentTransform * animateRotationMatrix * localScaling * localRotationMatrix * localTranslation;  // scale in the local coordinate
+	globalTransformation = parentTransform * animateScaling * localScaling * localRotationMatrix * localTranslation;  // scale in the local coordinate
 	// global to local rest post matrix
 	// need to apply parentRest outside because if not it will be double inversed (inverse every call)
 	restPoseInverse = glm::inverse(localScaling * localRotationMatrix * localTranslation) * parentRestInverse;
@@ -374,7 +374,7 @@ void SceneNode::interpolateBranchTransforms(std::vector<std::pair<SceneNode*, Sc
 			glm::vec3 pos = t * child->restPose[3] + (1 - t) * parent->restPose[3];
 
 			geom.verts.push_back(glm::vec3(animatedMat * glm::vec4(pos, 1.0f)));
-			geom.cols.push_back(glm::vec3(1.0f)); 
+			geom.cols.push_back(glm::vec3(0.f, 0.8f, 0.f)); 
 		}
 
 		outGeometry.push_back(geom);
@@ -646,7 +646,7 @@ void SceneNode::multipleWeights(std::vector<ContourBinding>& bindings) {
 		for (int j = 0; j < bindings[i].weights.size(); j++) {
 			// take the average (direct averaging or using rate of blending)
 			//float average = (weightCopies[i - 1][j] + weightCopies[i][j] + weightCopies[i + 1][j]) / 3.0f;
-			float average = 0.8 * (((weightCopies[i - 1][j] + weightCopies[i][j] + weightCopies[i + 1][j]) / 3.0f) - weightCopies[i][j]) + weightCopies[i][j];
+			float average = (((weightCopies[i - 1][j] + weightCopies[i][j] + weightCopies[i + 1][j]) / 3.0f) - weightCopies[i][j]) + weightCopies[i][j];
 			bindings[i].weights[j] = average;
 		}
 	}
@@ -700,7 +700,7 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 	for (size_t i = 0; i < paddedPoints.size() - 3; i++) {
 		std::vector<glm::vec3> segmentPoints;
 
-		for (int j = 0; j <= pointsPerSegment; j++) {
+		for (int j = 0; j < pointsPerSegment; j++) {
 			float t = float(j) / pointsPerSegment;
 			glm::vec3 pt = glm::catmullRom(
 				paddedPoints[i],
@@ -711,7 +711,13 @@ std::vector<std::vector<glm::vec3>> SceneNode::contourCatmullRomGrouped(std::vec
 			);
 			segmentPoints.push_back(pt);
 		}
-
+		if (i == paddedPoints.size() - 4) segmentPoints.push_back(glm::catmullRom(
+			paddedPoints[i],
+			paddedPoints[i + 1],
+			paddedPoints[i + 2],
+			paddedPoints[i + 3],
+			1
+		));
 		groupedContourPoints.push_back(segmentPoints);
 	}
 
