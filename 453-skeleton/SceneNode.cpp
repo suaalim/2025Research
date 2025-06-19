@@ -459,7 +459,8 @@ std::vector<ContourBinding> SceneNode::addContourPoints(std::vector<ContourBindi
 				// we don't have to worry about branching point binding, not doing that
 				if (bindings[i + 1].t == 0.f) {
 					std::vector<glm::mat4> previousAnimateInverseMatCopy = bindings[i + 1].previousAnimateInverseMat;
-					previousAnimateInverseMatCopy[0] = previousiInverseAnimationMat;
+					// last contour point is always binded to the last branch 
+					previousAnimateInverseMatCopy[bindings[i + 1].weights.size() - 1] = previousiInverseAnimationMat;
 					newBindingSet.push_back({ bindings[i + 1].parentNode, bindings[i + 1].childNode, newPoint, t2, secondNeighborChild, previousiInverseAnimationMat, newWeights, previousAnimateInverseMatCopy, bindings[i + 1].childBranchIndex });
 				}
 				else {
@@ -858,13 +859,13 @@ std::vector<ContourBinding> SceneNode::bindInterpolatedContourToBranches(const s
 	bindings[0].closestPoint = (bindings[0].t * bindings[0].childNode->globalTransformation[3] + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation[3]);
 	bindings[0].previousAnimateInverseMat[bindings[0].childBranchIndex] = glm::inverse(bindings[0].t * bindings[0].childNode->globalTransformation + (1 - bindings[0].t) * bindings[0].parentNode->globalTransformation);
 
-	bindings[bindings.size() - 1].parentNode = std::get<0>(segments[0]);
-	bindings[bindings.size() - 1].childNode = std::get<1>(segments[0]);
+	bindings[bindings.size() - 1].parentNode = std::get<0>(segments[segments.size() - 1]);
+	bindings[bindings.size() - 1].childNode = std::get<1>(segments[segments.size() - 1]);
 	bindings[bindings.size() - 1].t = 0.f;
 	std::fill(bindings[bindings.size() - 1].weights.begin(), bindings[bindings.size() - 1].weights.end(), 0);
-	bindings[bindings.size() - 1].weights[0] = 1.f;
+	bindings[bindings.size() - 1].weights[segments.size() - 1] = 1.f;
 	bindings[bindings.size() - 1].closestPoint = (bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation[3] + (1 - bindings[bindings.size() - 1].t) * bindings[0].parentNode->globalTransformation[3]);
-	bindings[bindings.size() - 1].previousAnimateInverseMat[0] = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
+	bindings[bindings.size() - 1].previousAnimateInverseMat[segments.size() - 1] = glm::inverse(bindings[bindings.size() - 1].t * bindings[bindings.size() - 1].childNode->globalTransformation + (1 - bindings[bindings.size() - 1].t) * bindings[bindings.size() - 1].parentNode->globalTransformation);
 
 
 	//// take two consecutive points, go deep until the parents are the same -> bind to this parent
