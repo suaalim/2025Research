@@ -150,7 +150,7 @@ int main() {
 	CPU_Geometry mappingLines;
 
 	// camera setup
-	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 7), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
+	glm::mat4 view = glm::lookAt(glm::vec3(0, 0, 5), glm::vec3(0, 1, 0), glm::vec3(0, 1, 0));
 	glm::mat4 proj = glm::perspective(glm::radians(45.0f), 800.f / 800.f, 0.1f, 100.f);
 	glm::mat4 viewProj = proj * view;
 	glUseProgram(shader);
@@ -225,26 +225,26 @@ int main() {
 		// Branch
 		updateBuffers(branchGeometry.verts, branchGeometry.cols, branchGeometry.indices);
 		glBindVertexArray(vao);
-		glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
-		glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
+		//glDrawArrays(GL_POINTS, 0, branchGeometry.verts.size());
+		//glDrawElements(GL_LINES, branchGeometry.indices.size(), GL_UNSIGNED_INT, 0);
 
-		//// Interpolated branch
-		//for (int i = 0; i < branchUpdates.size(); i++) {
-		//	updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
-		//	glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
-		//	glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
-		//	//glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
-		//}
+		// Interpolated branch
+		for (int i = 0; i < branchUpdates.size(); i++) {
+			updateBuffers(branchUpdates[i].verts, branchUpdates[i].cols, branchUpdates[i].indices);
+			//glDrawArrays(GL_POINTS, 0, branchUpdates[i].verts.size());
+			glDrawArrays(GL_LINE_STRIP, 0, branchUpdates[i].verts.size());
+			//glDrawElements(GL_LINES, branchUpdates.indices.size(), GL_UNSIGNED_INT, 0);
+		}
 
 		// Contour
 		updateBuffers(contourGeometry.verts, contourGeometry.cols, {});
 		glDrawArrays(GL_POINTS, 0, contourGeometry.verts.size());
 		glDrawArrays(GL_LINE_STRIP, 0, contourGeometry.verts.size());
 
-		// Mapping (DEBUGGING PURPOSES)
-		updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
-		glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
-		draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
+		//// Mapping (DEBUGGING PURPOSES)
+		//updateBuffers(mappingLines.verts, mappingLines.cols, mappingLines.indices);
+		//glDrawArrays(GL_POINTS, 0, mappingLines.verts.size());
+		//draw(GL_LINES, mappingLines.verts.size(), mappingLines.indices.size());
 
 		glfwSwapBuffers(window);
 		glfwPollEvents();
